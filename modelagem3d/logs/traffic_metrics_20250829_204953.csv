@@ -1,0 +1,2 @@
+timestamp,elapsed_time,fps,frame_time_ms,memory_mb,paused,north_spawn_rate,north_completion_rate,north_avg_wait,north_queue,south_spawn_rate,south_completion_rate,south_avg_wait,south_queue,east_spawn_rate,east_completion_rate,east_avg_wait,east_queue,west_spawn_rate,west_completion_rate,west_avg_wait,west_queue,total_vehicles,total_completed,avg_system_wait_time
+2025-08-29T20:49:53.977952,0.0004401206970214844,0.0,0.0,0.0,0,0.0,0.0,0.0,0,0.0,0.0,0.0,0,0.0,0.0,0.0,0,0.0,0.0,0.0,0,0,0,0.0
