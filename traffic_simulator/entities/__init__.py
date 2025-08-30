@@ -1,0 +1,1 @@
+# Game entities (cars, traffic lights)

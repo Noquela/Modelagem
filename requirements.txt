@@ -1,0 +1,21 @@
+# Traffic Simulator 3D - Python Dependencies
+# Core 3D rendering and game engine
+moderngl>=5.6.4
+pygame>=2.1.0
+PyOpenGL>=3.1.0
+PyOpenGL-accelerate>=3.1.0
+
+# Mathematics and arrays
+numpy>=1.21.0
+pyrr>=0.10.3
+
+# Optional: Enhanced performance
+numba>=0.56.0
+
+# Optional: Additional utilities  
+pillow>=8.0.0
+
+# Development dependencies (optional)
+# pytest>=6.0.0
+# black>=21.0.0
+# flake8>=3.9.0

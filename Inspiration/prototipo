@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulação 3D - Intersecção com Semáforos</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #222;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            color: white;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            color: white;
+            font-size: 12px;
+            max-width: 200px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .status {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <h3>Controles</h3>
+            <button onclick="toggleSimulation()">Pausar/Continuar</button>
+            <button onclick="resetCamera()">Reset Câmera</button>
+            <div class="status">
+                <div>Tempo: <span id="timer">0</span>s</div>
+                <div>Status: <span id="status">Rodando</span></div>
+                <div>Carros: <span id="car-count">0</span></div>
+            </div>
+        </div>
+        
+        <div id="info">
+            <h4>Intersecção</h4>
+            <p><strong>Rua Principal:</strong> Duas mãos (2 semáforos)</p>
+            <p><strong>Rua de Mão Única:</strong> Uma direção (1 semáforo)</p>
+            <p><strong>Sistema de Segurança:</strong></p>
+            <p>• Tempo de segurança entre semáforos</p>
+            <p>• Carros não param no meio da intersecção</p>
+            <p>• Distância mínima para parada segura</p>
+            <p>• Lógica de amarelo inteligente</p>
+            <p><strong>Sincronização:</strong> Os 2 da rua principal sincronizados, o da mão única em tempo oposto</p>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais
+        let scene, camera, renderer, controls;
+        let trafficLights = [];
+        let cars = [];
+        let isRunning = true;
+        let startTime = Date.now();
+        let cycleTime = 37000; // 37 segundos para incluir tempos de segurança
+        
+        // Configurações dos carros
+        const CAR_CONFIG = {
+            speed: 0.02, // velocidade normal
+            minDistance: 4, // distância mínima entre carros
+            stopDistance: 8, // distância para parar no semáforo
+            intersectionStopLine: 6, // linha de parada antes da intersecção
+            acceleration: 0.001,
+            deceleration: 0.002,
+            spawnRate: 0.025, // taxa base - será multiplicada por fator aleatório
+            minSpawnDistance: 4, // distância mínima para spawn
+        };
+        
+        // Estados dos semáforos
+        const LIGHT_STATE = {
+            RED: 0,
+            YELLOW: 1,
+            GREEN: 2
+        };
+        
+        // Direções dos carros
+        const CAR_DIRECTION = {
+            LEFT_TO_RIGHT: 0,
+            RIGHT_TO_LEFT: 1,
+            TOP_TO_BOTTOM: 2  // Mudança: agora vai de cima para baixo
+        };
+        
+        init();
+        animate();
+        
+        function init() {
+            // Cena
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            
+            // Câmera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 25, 25);
+            camera.lookAt(0, 0, 0);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Iluminação
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            
+            // Criar o chão/ruas
+            createRoads();
+            
+            // Criar semáforos
+            createTrafficLights();
+            
+            // Spawn inicial de carros para todas as direções (incluindo rua que corta)
+            initialCarSpawn();
+            
+            // Controles de câmera simples com mouse
+            addMouseControls();
+            
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function initialCarSpawn() {
+            // Spawnar alguns carros iniciais em todas as direções para demonstrar o sistema
+            
+            // Carros na rua principal (esquerda para direita)
+            if (Math.random() < 0.7) cars.push(createCar(CAR_DIRECTION.LEFT_TO_RIGHT, 0));
+            if (Math.random() < 0.7) cars.push(createCar(CAR_DIRECTION.LEFT_TO_RIGHT, 1));
+            
+            // Carros na rua principal (direita para esquerda)
+            if (Math.random() < 0.7) cars.push(createCar(CAR_DIRECTION.RIGHT_TO_LEFT, 0));
+            if (Math.random() < 0.7) cars.push(createCar(CAR_DIRECTION.RIGHT_TO_LEFT, 1));
+            
+            // Carros na rua de mão única (cima para baixo) - IMPORTANTE: spawnar desde o início
+            if (Math.random() < 0.8) cars.push(createCar(CAR_DIRECTION.TOP_TO_BOTTOM, 0));
+        }
+        
+        function createRoads() {
+            const roadMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            const grassMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+            
+            // Chão de grama
+            const grassGeometry = new THREE.PlaneGeometry(50, 50);
+            const grass = new THREE.Mesh(grassGeometry, grassMaterial);
+            grass.rotation.x = -Math.PI / 2;
+            grass.receiveShadow = true;
+            scene.add(grass);
+            
+            // Rua horizontal (duas mãos) - mais larga
+            const horizontalRoadGeometry = new THREE.PlaneGeometry(50, 10);
+            const horizontalRoad = new THREE.Mesh(horizontalRoadGeometry, roadMaterial);
+            horizontalRoad.rotation.x = -Math.PI / 2;
+            horizontalRoad.position.y = 0.01;
+            horizontalRoad.receiveShadow = true;
+            scene.add(horizontalRoad);
+            
+            // Rua vertical (mão única) - mantém o tamanho
+            const verticalRoadGeometry = new THREE.PlaneGeometry(6, 50);
+            const verticalRoad = new THREE.Mesh(verticalRoadGeometry, roadMaterial);
+            verticalRoad.rotation.x = -Math.PI / 2;
+            verticalRoad.position.y = 0.01;
+            verticalRoad.receiveShadow = true;
+            scene.add(verticalRoad);
+            
+            // Linhas da rua (faixa amarela no meio da rua horizontal)
+            createRoadLines();
+        }
+        
+        function createRoadLines() {
+            const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
+            
+            // Linha central da rua horizontal
+            for (let i = -20; i <= 20; i += 4) {
+                const lineGeometry = new THREE.PlaneGeometry(2, 0.2);
+                const line = new THREE.Mesh(lineGeometry, lineMaterial);
+                line.rotation.x = -Math.PI / 2;
+                line.position.set(i, 0.02, 0);
+                scene.add(line);
+            }
+        }
+        
+        function createTrafficLights() {
+            // Semáforo 1: Rua principal - lado esquerdo (controla tráfego horizontal)
+            const light1 = createTrafficLight(-5, 0, 5, Math.PI / 2, 'main_road');
+            trafficLights.push(light1);
+            
+            // Semáforo 2: Rua principal - lado direito (controla tráfego horizontal)  
+            const light2 = createTrafficLight(5, 0, -5, -Math.PI / 2, 'main_road');
+            trafficLights.push(light2);
+            
+            // Semáforo 3: Rua de mão única - controla o tráfego que vem de baixo para cima
+            const light3 = createTrafficLight(-5, 0, -5, 0, 'one_way_road');
+            trafficLights.push(light3);
+        }
+        
+        function createTrafficLight(x, y, z, rotation, type) {
+            const lightGroup = new THREE.Group();
+            
+            // Poste principal
+            const poleGeometry = new THREE.CylinderGeometry(0.1, 0.1, 4);
+            const poleMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
+            const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+            pole.position.y = 2;
+            pole.castShadow = true;
+            lightGroup.add(pole);
+            
+            // Haste horizontal que se estende para a rua
+            const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 3);
+            const armMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
+            const arm = new THREE.Mesh(armGeometry, armMaterial);
+            arm.rotation.z = Math.PI / 2;
+            arm.position.set(1.5, 4, 0);
+            arm.castShadow = true;
+            lightGroup.add(arm);
+            
+            // Caixa do semáforo na ponta da haste
+            const boxGeometry = new THREE.BoxGeometry(0.6, 1.8, 0.3);
+            const boxMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            const box = new THREE.Mesh(boxGeometry, boxMaterial);
+            box.position.set(3, 4, 0);
+            box.castShadow = true;
+            lightGroup.add(box);
+            
+            // Luzes
+            const lights = {
+                red: createLight(0xFF0000, 3, 4.5, 0.15),
+                yellow: createLight(0xFFFF00, 3, 4, 0.15),
+                green: createLight(0x00FF00, 3, 3.5, 0.15)
+            };
+            
+            lightGroup.add(lights.red);
+            lightGroup.add(lights.yellow);
+            lightGroup.add(lights.green);
+            
+            // Posicionar e rotacionar
+            lightGroup.position.set(x, y, z);
+            lightGroup.rotation.y = rotation;
+            
+            scene.add(lightGroup);
+            
+            return {
+                group: lightGroup,
+                lights: lights,
+                type: type,
+                currentState: LIGHT_STATE.RED
+            };
+        }
+        
+        function createLight(color, x, y, z) {
+            const lightGeometry = new THREE.SphereGeometry(0.15);
+            const lightMaterial = new THREE.MeshBasicMaterial({ 
+                color: color,
+                transparent: true,
+                opacity: 0.3
+            });
+            const light = new THREE.Mesh(lightGeometry, lightMaterial);
+            light.position.set(x, y, z);
+            return light;
+        }
+        
+        function updateTrafficLights() {
+            if (!isRunning) return;
+            
+            const currentTime = (Date.now() - startTime) % cycleTime;
+            const phase = currentTime / cycleTime;
+            
+            let mainRoadState, oneWayRoadState;
+            
+            // Lógica dos semáforos com tempo de segurança:
+            // Ciclo total: 36s
+            // Rua principal: 15s verde + 3s amarelo = 18s (0-0.5 do ciclo)
+            // TEMPO DE SEGURANÇA: 1s ambos vermelhos (0.5-0.528 do ciclo)
+            // Rua de mão única: 15s verde + 3s amarelo = 18s (0.528-1.0 do ciclo)
+            
+            if (phase < (15/36)) {
+                // Rua principal verde (15s), rua de mão única vermelho
+                mainRoadState = LIGHT_STATE.GREEN;
+                oneWayRoadState = LIGHT_STATE.RED;
+            } else if (phase < (18/36)) {
+                // Rua principal amarelo (3s), rua de mão única vermelho
+                mainRoadState = LIGHT_STATE.YELLOW;
+                oneWayRoadState = LIGHT_STATE.RED;
+            } else if (phase < (19/36)) {
+                // TEMPO DE SEGURANÇA: ambos vermelhos (1s)
+                mainRoadState = LIGHT_STATE.RED;
+                oneWayRoadState = LIGHT_STATE.RED;
+            } else if (phase < (34/36)) {
+                // Rua principal vermelho, rua de mão única verde (15s)
+                mainRoadState = LIGHT_STATE.RED;
+                oneWayRoadState = LIGHT_STATE.GREEN;
+            } else if (phase < (37/36)) {
+                // Rua principal vermelho, rua de mão única amarelo (3s)
+                mainRoadState = LIGHT_STATE.RED;
+                oneWayRoadState = LIGHT_STATE.YELLOW;
+            } else {
+                // TEMPO DE SEGURANÇA FINAL: ambos vermelhos (resto do ciclo)
+                mainRoadState = LIGHT_STATE.RED;
+                oneWayRoadState = LIGHT_STATE.RED;
+            }
+            
+            // Aplicar estados aos semáforos
+            trafficLights.forEach(light => {
+                const state = light.type === 'main_road' ? mainRoadState : oneWayRoadState;
+                setLightState(light, state);
+            });
+        }
+        
+        function setLightState(trafficLight, state) {
+            // Reset all lights
+            trafficLight.lights.red.material.opacity = 0.3;
+            trafficLight.lights.yellow.material.opacity = 0.3;
+            trafficLight.lights.green.material.opacity = 0.3;
+            
+            // Set active light
+            switch(state) {
+                case LIGHT_STATE.RED:
+                    trafficLight.lights.red.material.opacity = 1.0;
+                    break;
+                case LIGHT_STATE.YELLOW:
+                    trafficLight.lights.yellow.material.opacity = 1.0;
+                    break;
+                case LIGHT_STATE.GREEN:
+                    trafficLight.lights.green.material.opacity = 1.0;
+                    break;
+            }
+            
+            trafficLight.currentState = state;
+        }
+        
+        function addMouseControls() {
+            let mouseX = 0, mouseY = 0;
+            let isMouseDown = false;
+            
+            document.addEventListener('mousedown', (event) => {
+                isMouseDown = true;
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+            
+            document.addEventListener('mousemove', (event) => {
+                if (!isMouseDown) return;
+                
+                const deltaX = event.clientX - mouseX;
+                const deltaY = event.clientY - mouseY;
+                
+                // Rotacionar câmera em volta da origem
+                const distance = camera.position.length();
+                const phi = Math.atan2(camera.position.z, camera.position.x) - deltaX * 0.01;
+                const theta = Math.acos(camera.position.y / distance) + deltaY * 0.01;
+                
+                camera.position.x = distance * Math.sin(theta) * Math.cos(phi);
+                camera.position.y = distance * Math.cos(theta);
+                camera.position.z = distance * Math.sin(theta) * Math.sin(phi);
+                
+                camera.lookAt(0, 0, 0);
+                
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            });
+            
+            // Zoom com scroll
+            document.addEventListener('wheel', (event) => {
+                const distance = camera.position.length();
+                const newDistance = Math.max(10, Math.min(50, distance + event.deltaY * 0.01));
+                camera.position.multiplyScalar(newDistance / distance);
+            });
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            updateTrafficLights();
+            spawnCars();
+            updateCars();
+            updateUI();
+            
+            renderer.render(scene, camera);
+        }
+        
+        function updateUI() {
+            const timer = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').textContent = timer;
+            document.getElementById('status').textContent = isRunning ? 'Rodando' : 'Pausado';
+            
+            // Mostrar contagem de carros
+            const carCount = document.getElementById('car-count');
+            if (carCount) {
+                carCount.textContent = cars.length;
+            }
+        }
+        
+        function toggleSimulation() {
+            isRunning = !isRunning;
+            if (isRunning) {
+                startTime = Date.now() - ((Date.now() - startTime) % cycleTime);
+            }
+        }
+        
+        function resetCamera() {
+            camera.position.set(0, 25, 25);
+            camera.lookAt(0, 0, 0);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Sistema de carros
+        function createCar(direction, lane = 0) {
+            const carGroup = new THREE.Group();
+            
+            // Corpo do carro (menor para caber melhor na faixa)
+            const bodyGeometry = new THREE.BoxGeometry(1.8, 0.6, 0.9);
+            const colors = [0xFF4444, 0x4444FF, 0x44FF44, 0xFFFF44, 0xFF44FF, 0x44FFFF, 0xFFFFFF, 0x888888];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: randomColor });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.3;
+            body.castShadow = true;
+            carGroup.add(body);
+            
+            // Janelas
+            const windowGeometry = new THREE.BoxGeometry(1.6, 0.4, 0.8);
+            const windowMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x333333, 
+                transparent: true, 
+                opacity: 0.8 
+            });
+            const windows = new THREE.Mesh(windowGeometry, windowMaterial);
+            windows.position.y = 0.5;
+            carGroup.add(windows);
+            
+            // Rodas
+            const wheelGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.1);
+            const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+            
+            const positions = [
+                [-0.6, 0.15, -0.35],
+                [-0.6, 0.15, 0.35],
+                [0.6, 0.15, -0.35],
+                [0.6, 0.15, 0.35]
+            ];
+            
+            positions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.position.set(pos[0], pos[1], pos[2]);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.castShadow = true;
+                carGroup.add(wheel);
+            });
+            
+            // Posição inicial baseada na direção (faixas mais largas na rua principal)
+            let startX, startZ, targetX, targetZ, rotationY;
+            
+            switch(direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    startX = -25;
+                    startZ = -3 + (lane * 2.5); // faixas mais largas (2.5 unidades cada)
+                    targetX = 25;
+                    targetZ = startZ;
+                    rotationY = 0;
+                    break;
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    startX = 25;
+                    startZ = 3 - (lane * 2.5); // faixas mais largas (2.5 unidades cada)
+                    targetX = -25;
+                    targetZ = startZ;
+                    rotationY = Math.PI;
+                    break;
+                case CAR_DIRECTION.TOP_TO_BOTTOM: // Mudança de direção
+                    startX = 0; // centralizado na rua de mão única
+                    startZ = 25; // nasce de cima
+                    targetX = startX;
+                    targetZ = -25; // vai para baixo
+                    rotationY = -Math.PI / 2; // rotação ajustada
+                    break;
+            }
+            
+            carGroup.position.set(startX, 0, startZ);
+            carGroup.rotation.y = rotationY;
+            
+            scene.add(carGroup);
+            
+            return {
+                group: carGroup,
+                direction: direction,
+                lane: lane,
+                currentSpeed: 0,
+                maxSpeed: CAR_CONFIG.speed + Math.random() * 0.01,
+                target: { x: targetX, z: targetZ },
+                shouldStop: false,
+                distanceToStop: 0,
+                hasPassedIntersection: false
+            };
+        }
+        
+        function spawnCars() {
+            if (!isRunning) return;
+            
+            // Sistema de spawn mais aleatório com intervalos variáveis
+            const baseSpawnChance = CAR_CONFIG.spawnRate;
+            const randomFactor = 0.5 + Math.random(); // entre 0.5 e 1.5
+            
+            // Spawn carros na rua principal (esquerda para direita)
+            if (Math.random() < baseSpawnChance * randomFactor) {
+                const lane = chooseBestLane(CAR_DIRECTION.LEFT_TO_RIGHT);
+                if (lane !== -1) {
+                    const canSpawn = canSpawnInLane(CAR_DIRECTION.LEFT_TO_RIGHT, lane) || 
+                                   hasSpaceForQueueing(CAR_DIRECTION.LEFT_TO_RIGHT, lane);
+                    if (canSpawn) {
+                        cars.push(createCar(CAR_DIRECTION.LEFT_TO_RIGHT, lane));
+                    }
+                }
+            }
+            
+            // Spawn carros na rua principal (direita para esquerda)
+            if (Math.random() < baseSpawnChance * randomFactor) {
+                const lane = chooseBestLane(CAR_DIRECTION.RIGHT_TO_LEFT);
+                if (lane !== -1) {
+                    const canSpawn = canSpawnInLane(CAR_DIRECTION.RIGHT_TO_LEFT, lane) || 
+                                   hasSpaceForQueueing(CAR_DIRECTION.RIGHT_TO_LEFT, lane);
+                    if (canSpawn) {
+                        cars.push(createCar(CAR_DIRECTION.RIGHT_TO_LEFT, lane));
+                    }
+                }
+            }
+            
+            // Spawn carros na rua de mão única (cima para baixo) - SEMPRE pode spawnar para formar fila
+            if (Math.random() < baseSpawnChance * randomFactor * 0.8) { // 80% da chance das outras ruas
+                const lane = 0;
+                const canSpawn = canSpawnInLane(CAR_DIRECTION.TOP_TO_BOTTOM, lane) || 
+                               hasSpaceForQueueing(CAR_DIRECTION.TOP_TO_BOTTOM, lane);
+                if (canSpawn) {
+                    cars.push(createCar(CAR_DIRECTION.TOP_TO_BOTTOM, lane));
+                }
+            }
+        }
+        
+        function hasSpaceForQueueing(direction, lane) {
+            // Verificar se há espaço para formar fila, mesmo com semáforo vermelho
+            const spawnPos = getSpawnPosition(direction, lane);
+            const carsInLane = cars.filter(car => car.direction === direction && car.lane === lane);
+            
+            if (carsInLane.length === 0) return true;
+            
+            // Encontrar o último carro da fila (mais próximo do spawn)
+            let lastCarInQueue = null;
+            let closestDistanceToSpawn = Infinity;
+            
+            carsInLane.forEach(car => {
+                const distanceToSpawn = calculateDirectionalDistance(spawnPos, car.group.position, direction);
+                if (distanceToSpawn >= 0 && distanceToSpawn < closestDistanceToSpawn) {
+                    closestDistanceToSpawn = distanceToSpawn;
+                    lastCarInQueue = car;
+                }
+            });
+            
+            // Se há espaço de pelo menos 4 unidades atrás do último carro da fila, pode spawnar
+            return !lastCarInQueue || closestDistanceToSpawn >= CAR_CONFIG.minDistance;
+        }
+        
+        function calculateDirectionalDistance(spawnPos, carPos, direction) {
+            // Calcular distância na direção correta do movimento
+            switch(direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    return carPos.x - spawnPos.x; // positivo se o carro está à frente
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    return spawnPos.x - carPos.x; // positivo se o carro está à frente
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    return spawnPos.z - carPos.z; // positivo se o carro está à frente
+            }
+            return 0;
+        }
+        
+        function chooseBestLane(direction) {
+            const maxLanes = direction === CAR_DIRECTION.TOP_TO_BOTTOM ? 1 : 2;
+            let bestLane = -1;
+            let maxDistance = 0;
+            
+            // Verificar qual faixa tem mais espaço para spawnar (incluindo para formar fila)
+            for (let lane = 0; lane < maxLanes; lane++) {
+                const distanceToNearestCar = getDistanceToNearestCarInLane(direction, lane);
+                if (distanceToNearestCar >= CAR_CONFIG.minDistance && distanceToNearestCar > maxDistance) {
+                    maxDistance = distanceToNearestCar;
+                    bestLane = lane;
+                }
+            }
+            
+            // Se nenhuma faixa tem espaço ideal, escolher a menos congestionada
+            if (bestLane === -1) {
+                let minCarsInLane = Infinity;
+                for (let lane = 0; lane < maxLanes; lane++) {
+                    const carsInLane = cars.filter(car => car.direction === direction && car.lane === lane).length;
+                    if (carsInLane < minCarsInLane) {
+                        minCarsInLane = carsInLane;
+                        bestLane = lane;
+                    }
+                }
+            }
+            
+            return bestLane;
+        }
+        
+        function getDistanceToNearestCarInLane(direction, lane) {
+            const spawnPos = getSpawnPosition(direction, lane);
+            let minDistance = Infinity;
+            
+            cars.forEach(car => {
+                if (car.direction === direction && car.lane === lane) {
+                    // Usar distância direcional em vez de euclidiana
+                    const directionalDistance = calculateDirectionalDistance(spawnPos, car.group.position, direction);
+                    if (directionalDistance >= 0 && directionalDistance < minDistance) {
+                        minDistance = directionalDistance;
+                    }
+                }
+            });
+            
+            return minDistance === Infinity ? 25 : minDistance; // distância padrão maior
+        }
+        
+        function canSpawnInLane(direction, lane) {
+            // Critério mais flexível - pode spawnar se há pelo menos distância mínima
+            return getDistanceToNearestCarInLane(direction, lane) >= CAR_CONFIG.minDistance;
+        }
+        
+        function hasCarNearSpawn(direction, lane) {
+            const spawnDistance = 12; // distância maior para evitar spawn muito próximo
+            
+            return cars.some(car => {
+                if (car.direction !== direction || car.lane !== lane) return false;
+                
+                const distance = car.group.position.distanceTo(getSpawnPosition(direction, lane));
+                return distance < spawnDistance;
+            });
+        }
+        
+        function getSpawnPosition(direction, lane) {
+            const pos = new THREE.Vector3();
+            switch(direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    pos.set(-25, 0, -3 + (lane * 2.5));
+                    break;
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    pos.set(25, 0, 3 - (lane * 2.5));
+                    break;
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    pos.set(0, 0, 25);
+                    break;
+            }
+            return pos;
+        }
+        
+        function updateCars() {
+            if (!isRunning) return;
+            
+            // Atualizar cada carro
+            for (let i = cars.length - 1; i >= 0; i--) {
+                const car = cars[i];
+                
+                // Verificar se deve parar (semáforo ou outro carro)
+                checkCarObstacles(car);
+                
+                // Atualizar velocidade com transição mais suave
+                if (car.shouldStop) {
+                    // Desaceleração mais gradual quando próximo do objetivo de parada
+                    const decelerationRate = car.distanceToStop < 3 ? CAR_CONFIG.deceleration * 2 : CAR_CONFIG.deceleration;
+                    car.currentSpeed = Math.max(0, car.currentSpeed - decelerationRate);
+                } else {
+                    car.currentSpeed = Math.min(car.maxSpeed, car.currentSpeed + CAR_CONFIG.acceleration);
+                }
+                
+                // Mover carro apenas se tem velocidade
+                if (car.currentSpeed > 0.001) { // threshold mínimo
+                    moveCar(car);
+                }
+                
+                // Remover carros que saíram da tela
+                if (isCarOutOfBounds(car)) {
+                    scene.remove(car.group);
+                    cars.splice(i, 1);
+                }
+            }
+        }
+        
+        function checkCarObstacles(car) {
+            car.shouldStop = false;
+            car.distanceToStop = Infinity;
+            
+            // PRIMEIRA PRIORIDADE: Verificar outros carros à frente
+            const carAhead = getCarAhead(car);
+            if (carAhead) {
+                const distance = getDistanceBetweenCars(car, carAhead);
+                if (distance <= CAR_CONFIG.minDistance) {
+                    car.shouldStop = true;
+                    car.distanceToStop = Math.min(car.distanceToStop, distance - 2);
+                    return;
+                }
+            }
+            
+            // SEGUNDA PRIORIDADE: Verificar semáforo - NÃO PARAR NO MEIO DA INTERSECÇÃO
+            if (!car.hasPassedIntersection) {
+                const distanceToIntersection = getDistanceToIntersection(car);
+                const shouldStopAtLight = shouldStopAtTrafficLight(car);
+                
+                // REGRA IMPORTANTE: Só parar se conseguir parar ANTES da intersecção
+                const minimumStopDistance = 8; // distância mínima para conseguir parar com segurança
+                
+                if (shouldStopAtLight && distanceToIntersection > minimumStopDistance) {
+                    // Só para se conseguir parar antes da linha de parada
+                    const stopPosition = Math.max(2, distanceToIntersection - CAR_CONFIG.intersectionStopLine);
+                    
+                    if (!carAhead || getDistanceBetweenCars(car, carAhead) > CAR_CONFIG.minDistance) {
+                        car.shouldStop = true;
+                        car.distanceToStop = Math.min(car.distanceToStop, stopPosition);
+                    }
+                } else if (shouldStopAtLight && distanceToIntersection <= minimumStopDistance && distanceToIntersection > 0) {
+                    // Se está muito próximo mas ainda não entrou na intersecção, continua (não consegue parar com segurança)
+                    // Isso evita paradas bruscas no meio da intersecção
+                }
+            }
+            
+            // Marcar se passou da intersecção
+            if (hasPassedIntersection(car) && !car.hasPassedIntersection) {
+                car.hasPassedIntersection = true;
+            }
+        }
+        
+        function getDistanceBetweenCars(car1, car2) {
+            // Calcular distância real levando em conta a direção do movimento
+            switch(car1.direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    return Math.abs(car2.group.position.x - car1.group.position.x);
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    return Math.abs(car1.group.position.x - car2.group.position.x);
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    return Math.abs(car1.group.position.z - car2.group.position.z);
+            }
+            return car1.group.position.distanceTo(car2.group.position);
+        }
+        
+        function getDistanceToIntersection(car) {
+            switch(car.direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    return Math.max(0, -4 - car.group.position.x); // intersecção em x = -4
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    return Math.max(0, car.group.position.x - 4); // intersecção em x = 4
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    return Math.max(0, car.group.position.z - 4); // intersecção em z = 4
+            }
+            return 0;
+        }
+        
+        function hasPassedIntersection(car) {
+            switch(car.direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    return car.group.position.x > 4;
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    return car.group.position.x < -4;
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    return car.group.position.z < -4;
+            }
+            return false;
+        }
+        
+        function getDistanceToTrafficLight(car) {
+            switch(car.direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    return Math.abs(car.group.position.x - (-4)); // linha de parada antes da intersecção
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    return Math.abs(car.group.position.x - 4);
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    return Math.abs(car.group.position.z - 4);
+            }
+            return Infinity;
+        }
+        
+        function shouldStopAtTrafficLight(car) {
+            let relevantLight;
+            
+            switch(car.direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    // Usar semáforos da rua principal
+                    relevantLight = trafficLights.find(light => light.type === 'main_road');
+                    break;
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    // Usar semáforo da mão única
+                    relevantLight = trafficLights.find(light => light.type === 'one_way_road');
+                    break;
+            }
+            
+            if (!relevantLight) return false;
+            
+            // Parar no vermelho SEMPRE, no amarelo com probabilidade
+            if (relevantLight.currentState === LIGHT_STATE.RED) {
+                return true;
+            } else if (relevantLight.currentState === LIGHT_STATE.YELLOW) {
+                // No amarelo, decidir baseado na distância - se está longe, para; se está perto, continua
+                const distanceToIntersection = getDistanceToIntersection(car);
+                return distanceToIntersection > 10; // só para no amarelo se está longe o suficiente
+            }
+            
+            return false;
+        }
+        
+        function getCarAhead(currentCar) {
+            let closestCar = null;
+            let closestDistance = Infinity;
+            
+            cars.forEach(car => {
+                if (car === currentCar) return;
+                if (car.direction !== currentCar.direction) return;
+                if (car.lane !== currentCar.lane) return;
+                
+                let isAhead = false;
+                let distance = 0;
+                
+                // Verificar se está à frente na mesma direção
+                switch(currentCar.direction) {
+                    case CAR_DIRECTION.LEFT_TO_RIGHT:
+                        isAhead = car.group.position.x > currentCar.group.position.x;
+                        distance = car.group.position.x - currentCar.group.position.x;
+                        break;
+                    case CAR_DIRECTION.RIGHT_TO_LEFT:
+                        isAhead = car.group.position.x < currentCar.group.position.x;
+                        distance = currentCar.group.position.x - car.group.position.x;
+                        break;
+                    case CAR_DIRECTION.TOP_TO_BOTTOM:
+                        isAhead = car.group.position.z < currentCar.group.position.z;
+                        distance = currentCar.group.position.z - car.group.position.z;
+                        break;
+                }
+                
+                if (isAhead && distance > 0 && distance < closestDistance && distance < 15) {
+                    closestDistance = distance;
+                    closestCar = car;
+                }
+            });
+            
+            return closestCar;
+        }
+        
+        function moveCar(car) {
+            switch(car.direction) {
+                case CAR_DIRECTION.LEFT_TO_RIGHT:
+                    car.group.position.x += car.currentSpeed;
+                    break;
+                case CAR_DIRECTION.RIGHT_TO_LEFT:
+                    car.group.position.x -= car.currentSpeed;
+                    break;
+                case CAR_DIRECTION.TOP_TO_BOTTOM:
+                    car.group.position.z -= car.currentSpeed;
+                    break;
+            }
+        }
+        
+        function isCarOutOfBounds(car) {
+            const pos = car.group.position;
+            return pos.x > 30 || pos.x < -30 || pos.z > 30 || pos.z < -30;
+        }
+    </script>
+</body>
+</html>
