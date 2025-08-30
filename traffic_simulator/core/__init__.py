@@ -1,1 +1,0 @@
-# Core 3D engine components
