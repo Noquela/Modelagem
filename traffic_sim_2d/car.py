@@ -71,16 +71,16 @@ class Car:
             x = -30  # Fora da tela à esquerda
             # Faixas organizadas: lane 0 = externa, lane 1 = interna
             if self.lane == 0:
-                y = road_y + 40  # Faixa externa (mais afastada do centro)
+                y = road_y + 30  # Faixa externa (CORRIGIDO - era 40)
             else:
-                y = road_y + 25  # Faixa interna (mais próxima do centro)
+                y = road_y + 60  # Faixa interna (CORRIGIDO - era 25)
         elif self.direction == Direction.RIGHT_TO_LEFT:
             x = WINDOW_WIDTH + 30  # Fora da tela à direita
             # Faixas organizadas: lane 0 = interna, lane 1 = externa
             if self.lane == 0:
-                y = road_y + 105  # Faixa interna (mais próxima do centro)
+                y = road_y + 100  # Faixa interna (CORRIGIDO - era 105)
             else:
-                y = road_y + 135  # Faixa externa (mais afastada do centro)
+                y = road_y + 130  # Faixa externa (CORRIGIDO - era 135)
         elif self.direction == Direction.TOP_TO_BOTTOM:
             x = cross_road_x + 25  # Centralizado na faixa de descida
             y = -30  # Fora da tela DE CIMA
@@ -171,11 +171,12 @@ class Car:
             self.has_passed_intersection = True
     
     def _calculate_safe_following_distance(self, car_ahead):
-        """Calcular distância segura otimizada com anti-engavetamento"""
+        """Calcular distância segura otimizada com anti-engavetamento - CORRIGIDO"""
         
-        # Usar as novas configurações
-        base_distance = CAR_CONFIG['min_following_distance']  # 32 pixels
-        queue_distance = CAR_CONFIG['queue_distance']         # 22 pixels
+        # === DISTÂNCIAS OTIMIZADAS BASEADAS NO PROTÓTIPO HTML ===
+        base_distance = 28        # REDUZIDO de 32 para 28
+        queue_distance = 18       # REDUZIDO de 22 para 18  
+        max_limit = 65           # REDUZIDO de 80 para 65
         
         # === ANÁLISE DE VELOCIDADE RELATIVA ===
         my_speed = self.current_speed
@@ -185,28 +186,28 @@ class Car:
         # === DISTÂNCIA BASEADA NO ESTADO ===
         # Se ambos estão praticamente parados (fila)
         if my_speed < 0.15 and ahead_speed < 0.15:
-            return queue_distance  # Filas compactas
+            return queue_distance  # Filas compactas (18px)
         
         # === FATOR DE VELOCIDADE DINÂMICO ===
-        # Mais velocidade = mais distância necessária
-        speed_factor = (my_speed / self.max_speed) * 15
+        # Mais velocidade = mais distância necessária (reduzido)
+        speed_factor = (my_speed / self.max_speed) * 12  # REDUZIDO de 15 para 12
         
         # === FATOR DE APROXIMAÇÃO ===
         # Se estou me aproximando rápido, aumentar distância
         approach_factor = 1.0
         if speed_difference > 0.3:  # Me aproximando muito rápido
-            approach_factor = 1.4
+            approach_factor = 1.3  # REDUZIDO de 1.4 para 1.3
         elif speed_difference > 0.1:  # Me aproximando
-            approach_factor = 1.2
+            approach_factor = 1.15  # REDUZIDO de 1.2 para 1.15
         
         # === FATOR DE PERSONALIDADE OTIMIZADO ===
-        personality_factor = self.following_distance_factor * 10  # Reduzido de 15 para 10
+        personality_factor = self.following_distance_factor * 8  # REDUZIDO de 10 para 8
         
         # === CÁLCULO FINAL ===
         dynamic_distance = (base_distance + speed_factor + personality_factor) * approach_factor
         
-        # Limites de segurança
-        return max(min(dynamic_distance, 80), queue_distance)  # Entre 22 e 80 pixels
+        # Limites de segurança OTIMIZADOS
+        return max(min(dynamic_distance, max_limit), queue_distance)  # Entre 18 e 65 pixels
     
     def _calculate_stopping_distance(self):
         """Calcular distância necessária para parar baseada na velocidade atual"""

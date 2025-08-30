@@ -153,7 +153,7 @@ class RushHourEvent(Event):
 class EventSystem:
     def __init__(self):
         self.active_events = []
-        self.event_probability = 0.0008  # 0.08% por frame (≈1 evento a cada 20-30 segundos)
+        self.event_probability = 0.0003  # REDUZIDO de 0.0008 para 0.0003 - eventos menos frequentes
         self.last_event_time = time.time()
         self.min_event_interval = 15  # Mínimo 15 segundos entre eventos
         

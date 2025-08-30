@@ -22,6 +22,13 @@ class SpawnSystem:
             Direction.RIGHT_TO_LEFT: 0,
             Direction.TOP_TO_BOTTOM: 0
         }
+        
+        # === SISTEMA ROUND-ROBIN PARA BALANCEAMENTO ===
+        self._lane_rotation = {
+            Direction.LEFT_TO_RIGHT: 0,
+            Direction.RIGHT_TO_LEFT: 0,
+            Direction.TOP_TO_BOTTOM: 0
+        }
     
     def update(self, cars):
         """Sistema de spawn EXATO baseado no que desenvolvemos"""
@@ -90,9 +97,27 @@ class SpawnSystem:
         return random.random() < min(final_spawn_chance, 0.20)  # Limite aumentado para 20%
     
     def _choose_best_lane(self, direction, cars):
-        """Escolher faixa menos congestionada (NOSSA LÓGICA)"""
+        """IMPLEMENTAR: Sistema round-robin para balancear faixas - CORRIGIDO"""
         max_lanes = 2 if direction != Direction.TOP_TO_BOTTOM else 1
         
+        # Para rua vertical (só 1 faixa)
+        if max_lanes == 1:
+            return 0
+        
+        # === SISTEMA ROUND-ROBIN BALANCEADO ===
+        # Tentar faixa atual da rotação
+        current_lane = self._lane_rotation[direction] % max_lanes
+        if self._can_spawn_safely(direction, current_lane, cars):
+            self._lane_rotation[direction] += 1
+            return current_lane
+        
+        # Se não conseguiu, tentar outra faixa
+        other_lane = (current_lane + 1) % max_lanes
+        if self._can_spawn_safely(direction, other_lane, cars):
+            self._lane_rotation[direction] += 1
+            return other_lane
+        
+        # === FALLBACK: LÓGICA ORIGINAL COMO BACKUP ===
         # Encontrar faixa com mais espaço
         best_lane = -1
         max_distance = 0

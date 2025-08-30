@@ -126,13 +126,13 @@ COLORS = {
 CAR_CONFIG = {
     'width': 25,
     'height': 15,
-    'max_speed': 2.2,               # AUMENTADO de 2.0 para 2.2 - mais fluido
-    'acceleration': 0.04,           # REDUZIDO de 0.05 para 0.04 - mais suave
-    'deceleration': 0.06,           # REDUZIDO de 0.08 para 0.06 - menos brusco
-    'min_following_distance': 32,  # OTIMIZADO para 32 pixels
-    'minimum_stop_distance': 45,   # REDUZIDO para 45 pixels
-    'queue_distance': 22,           # OTIMIZADO para filas compactas
-    'smooth_factor': 0.85           # Novo: fator de suavização
+    'max_speed': 2.0,               # REDUZIDO de 2.2 para 2.0 - mais controlado
+    'acceleration': 0.035,          # REDUZIDO de 0.04 para 0.035 - mais suave  
+    'deceleration': 0.055,          # REDUZIDO de 0.06 para 0.055 - mais gradual
+    'min_following_distance': 28,  # REDUZIDO de 32 para 28 - CORRIGIDO
+    'minimum_stop_distance': 45,   # Mantido
+    'queue_distance': 18,           # REDUZIDO de 22 para 18 - CORRIGIDO
+    'smooth_factor': 0.90           # AUMENTADO de 0.85 para 0.90 - mais suave
 }
 
 # Personalidades dos motoristas - EXATO COMO DESENVOLVEMOS
@@ -165,12 +165,12 @@ DRIVER_PERSONALITIES = {
 
 # Sistema de spawn - CONFIGURAÇÕES AJUSTADAS PARA 2D COMO HTML
 SPAWN_CONFIG = {
-    'base_spawn_rate': 0.045,      # AUMENTADO para 0.045 - mais tráfego
-    'randomness_factor': 0.7,      # AUMENTADO para mais variação
-    'min_spawn_distance': 25,      # REDUZIDO para 25 - filas mais compactas
-    'cross_road_multiplier': 0.75, # Rua cruzada com 75% da taxa
-    'rush_hour_multiplier': 1.8,   # Fator de rush hour (80% mais tráfego)
-    'queue_spawn_distance': 20     # Distância para spawnar em fila
+    'base_spawn_rate': 0.055,      # AUMENTADO de 0.045 para 0.055 - CORRIGIDO
+    'randomness_factor': 0.7,      # Mantido
+    'min_spawn_distance': 20,      # REDUZIDO de 25 para 20 - CORRIGIDO
+    'cross_road_multiplier': 0.75, # Mantido
+    'rush_hour_multiplier': 1.6,   # REDUZIDO de 1.8 para 1.6 - mais controlado
+    'queue_spawn_distance': 15     # REDUZIDO de 20 para 15 - CORRIGIDO
 }
 
 # Tempos dos semáforos - SISTEMA EXATO DE 37 SEGUNDOS
