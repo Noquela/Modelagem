@@ -225,11 +225,11 @@ class TrafficSim2D:
         if orientation == 'horizontal':
             # === CALCULAR LIMITES EXATOS DA INTERSECÇÃO ===
             intersection_width = 80  # Largura exata da rua vertical
-            crosswalk_margin = 20   # Margem para faixas de pedestres (reduzido de 50 para 20)
+            crosswalk_margin = 40   # Margem para faixas de pedestres (aumentado para 40)
             
             # Limites precisos considerando crosswalks
-            intersection_start = cross_road_x - crosswalk_margin  # Começar 20px antes da rua
-            intersection_end = cross_road_x + intersection_width + crosswalk_margin  # Terminar 20px depois
+            intersection_start = cross_road_x - crosswalk_margin  # Começar 40px antes da rua
+            intersection_end = cross_road_x + intersection_width + crosswalk_margin  # Terminar 40px depois
             
             # === ANTES DA INTERSECÇÃO ===
             x = 0
@@ -252,8 +252,8 @@ class TrafficSim2D:
         
         # === SETAS HORIZONTAIS - POSICIONADAS FORA DA INTERSECÇÃO ===
         # Calcular posições seguras para as setas (evitar intersecção)
-        intersection_start = cross_road_x - 20  # Margem da intersecção
-        intersection_end = cross_road_x + 80 + 20  # Fim da intersecção + margem
+        intersection_start = cross_road_x - 40  # Margem da intersecção (consistente)
+        intersection_end = cross_road_x + 80 + 40  # Fim da intersecção + margem
         
         # Faixas esquerda→direita  
         for lane_y in [road_y + 25, road_y + 55]:
