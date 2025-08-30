@@ -62,24 +62,32 @@ class SpawnSystem:
         return new_cars
     
     def _should_spawn(self, direction, current_time, rate_factor):
-        """Verificar se deve spawnar baseado na taxa e timing - SISTEMA APRIMORADO"""
-        # === TIMING MAIS INTELIGENTE ===
-        # Tempo mínimo entre spawns reduzido para formar filas
-        min_spawn_interval = 0.7  # Reduzido de 1.0 para 0.7 segundos
+        """Sistema inteligente de spawn com rush hour realístico"""
+        # === TIMING ADAPTATIVO ===
+        # Intervalo entre spawns baseado na densidade atual
+        min_spawn_interval = 0.5  # Mais rápido para formar filas
         
         if current_time - self.last_spawn_time[direction] < min_spawn_interval:
             return False
         
-        # === TAXA DE SPAWN AUMENTADA ===
-        # Aumentar chance de spawn para formar filas mais densas
-        enhanced_rate = self.base_spawn_rate * rate_factor * 1.5  # 50% mais spawn
+        # === SIMULAÇÃO DE RUSH HOUR ===
+        # Criar picos de tráfego baseados no tempo decorrido
+        elapsed_minutes = (current_time % 600) / 10  # Ciclo de 10 minutos = 1 hora simulada
         
-        # === VARIAÇÃO TEMPORAL ===
-        # Adicionar variação baseada no tempo para simular rush hour
-        time_factor = 1.0 + 0.3 * abs(math.sin(current_time * 0.1))  # Variação de ±30%
+        # Picos de tráfego: início (0-2), meio (4-6), fim (8-10) do ciclo
+        rush_factor = 1.0
+        if elapsed_minutes < 2 or (4 < elapsed_minutes < 6) or elapsed_minutes > 8:
+            rush_factor = SPAWN_CONFIG['rush_hour_multiplier']  # 1.8x mais tráfego
         
-        final_spawn_chance = enhanced_rate * time_factor
-        return random.random() < min(final_spawn_chance, 0.15)  # Limite máximo de 15%
+        # === TAXA ADAPTATIVA BASEADA EM DENSIDADE ===
+        enhanced_rate = self.base_spawn_rate * rate_factor * rush_factor
+        
+        # === VARIAÇÃO ORGÂNICA ===
+        # Variação suave e natural (não senoidal artificial)
+        organic_variation = 0.8 + (random.random() * 0.4)  # Variação de 80% a 120%
+        
+        final_spawn_chance = enhanced_rate * organic_variation
+        return random.random() < min(final_spawn_chance, 0.20)  # Limite aumentado para 20%
     
     def _choose_best_lane(self, direction, cars):
         """Escolher faixa menos congestionada (NOSSA LÓGICA)"""
@@ -106,33 +114,47 @@ class SpawnSystem:
         return best_lane
     
     def _can_spawn_safely(self, direction, lane, cars):
-        """Verificar se pode spawnar com segurança - SISTEMA INTELIGENTE DE FILAS"""
+        """Sistema inteligente de formação de filas - OTIMIZADO"""
         
-        # === CALCULAR DISTÂNCIAS MAIS PRECISAS ===
+        # === CALCULAR DISTÂNCIAS E ESTADO DA FILA ===
         distance_to_nearest = self._get_distance_to_nearest_car(direction, lane, cars)
-        
-        # === LÓGICA INTELIGENTE DE SPAWN ===
-        # Permitir spawn com distância menor para formar filas naturais
-        queue_formation_distance = 25  # Reduzido de 30 para 25
-        
-        # Se há muito espaço, sempre permitir spawn
-        if distance_to_nearest >= 60:
-            return True
-        
-        # Se há espaço razoável para fila, permitir spawn
-        if distance_to_nearest >= queue_formation_distance:
-            return True
-        
-        # Verificar se há fila formada (permitir spawn mesmo com pouco espaço)
         cars_in_lane = [car for car in cars 
                        if car.direction == direction and car.lane == lane]
         
-        # Se há poucos carros na faixa, sempre permitir
-        if len(cars_in_lane) < 8:  # Máximo 8 carros por faixa
-            return distance_to_nearest >= 20  # Distância mínima absoluta
+        # === LÓGICA BASEADA NO ESTADO DO TRÁFEGO ===
+        queue_distance = SPAWN_CONFIG['queue_spawn_distance']  # 20 pixels
+        normal_distance = SPAWN_CONFIG['min_spawn_distance']   # 25 pixels
         
-        # Se faixa cheia, não spawnar
-        return False
+        # Se há muito espaço livre, sempre spawnar
+        if distance_to_nearest >= 80:
+            return True
+        
+        # === DETECÇÃO DE FILA PARADA (SEMÁFORO VERMELHO) ===
+        # Verificar se há carros parados (formando fila)
+        stopped_cars = [car for car in cars_in_lane if car.current_speed < 0.2]
+        queue_forming = len(stopped_cars) >= 2
+        
+        if queue_forming:
+            # Durante formação de fila, permitir spawn mais próximo
+            min_distance = queue_distance
+            max_cars_in_queue = 12  # Permitir filas maiores
+        else:
+            # Tráfego normal, usar distâncias padrão
+            min_distance = normal_distance
+            max_cars_in_queue = 8
+        
+        # === VERIFICAÇÕES DE SEGURANÇA ===
+        # Verificar espaço mínimo
+        if distance_to_nearest < min_distance:
+            return False
+            
+        # Verificar se faixa não está lotada
+        if len(cars_in_lane) >= max_cars_in_queue:
+            return False
+        
+        # === SPAWN BALANCEADO ===
+        # Se há espaço adequado, permitir spawn
+        return distance_to_nearest >= min_distance
     
     def _get_distance_to_nearest_car(self, direction, lane, cars):
         """Calcular distância até o carro mais próximo na faixa"""

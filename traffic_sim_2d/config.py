@@ -126,12 +126,13 @@ COLORS = {
 CAR_CONFIG = {
     'width': 25,
     'height': 15,
-    'max_speed': 2.0,
-    'acceleration': 0.05,
-    'deceleration': 0.08,
-    'min_following_distance': 35,   # REDUZIDO de 120 para 35 (como HTML)
-    'minimum_stop_distance': 50,    # REDUZIDO de 200 para 50 (como HTML)
-    'queue_distance': 25            # Nova: distância em fila
+    'max_speed': 2.2,               # AUMENTADO de 2.0 para 2.2 - mais fluido
+    'acceleration': 0.04,           # REDUZIDO de 0.05 para 0.04 - mais suave
+    'deceleration': 0.06,           # REDUZIDO de 0.08 para 0.06 - menos brusco
+    'min_following_distance': 32,  # OTIMIZADO para 32 pixels
+    'minimum_stop_distance': 45,   # REDUZIDO para 45 pixels
+    'queue_distance': 22,           # OTIMIZADO para filas compactas
+    'smooth_factor': 0.85           # Novo: fator de suavização
 }
 
 # Personalidades dos motoristas - EXATO COMO DESENVOLVEMOS
@@ -164,10 +165,12 @@ DRIVER_PERSONALITIES = {
 
 # Sistema de spawn - CONFIGURAÇÕES AJUSTADAS PARA 2D COMO HTML
 SPAWN_CONFIG = {
-    'base_spawn_rate': 0.03,       # AUMENTADO de 0.025 para 0.03
-    'randomness_factor': 0.5,
-    'min_spawn_distance': 30,      # REDUZIDO de 120 para 30 (como HTML)
-    'cross_road_multiplier': 0.8   # Rua que corta tem 80% da chance
+    'base_spawn_rate': 0.045,      # AUMENTADO para 0.045 - mais tráfego
+    'randomness_factor': 0.7,      # AUMENTADO para mais variação
+    'min_spawn_distance': 25,      # REDUZIDO para 25 - filas mais compactas
+    'cross_road_multiplier': 0.75, # Rua cruzada com 75% da taxa
+    'rush_hour_multiplier': 1.8,   # Fator de rush hour (80% mais tráfego)
+    'queue_spawn_distance': 20     # Distância para spawnar em fila
 }
 
 # Tempos dos semáforos - SISTEMA EXATO DE 37 SEGUNDOS

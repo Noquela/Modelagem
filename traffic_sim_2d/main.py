@@ -218,17 +218,18 @@ class TrafficSim2D:
         self._draw_directional_arrows(surface, cross_road_x, road_y)
     
     def _draw_dashed_lane_line(self, surface, y_pos, cross_road_x, orientation):
-        """Desenhar linha pontilhada entre faixas do mesmo sentido - CORRIGIDO"""
+        """Desenhar linha pontilhada entre faixas do mesmo sentido - CORRIGIDO PRECISO"""
         dash_length = 15
         gap_length = 10
         
         if orientation == 'horizontal':
-            # === CALCULAR LIMITES PRECISOS DA INTERSECÇÃO ===
-            intersection_width = 80  # Largura da rua vertical
-            safety_margin = 50  # Margem de segurança para crosswalks
+            # === CALCULAR LIMITES EXATOS DA INTERSECÇÃO ===
+            intersection_width = 80  # Largura exata da rua vertical
+            crosswalk_margin = 20   # Margem para faixas de pedestres (reduzido de 50 para 20)
             
-            intersection_start = cross_road_x - safety_margin
-            intersection_end = cross_road_x + intersection_width + safety_margin
+            # Limites precisos considerando crosswalks
+            intersection_start = cross_road_x - crosswalk_margin  # Começar 20px antes da rua
+            intersection_end = cross_road_x + intersection_width + crosswalk_margin  # Terminar 20px depois
             
             # === ANTES DA INTERSECÇÃO ===
             x = 0
@@ -249,33 +250,37 @@ class TrafficSim2D:
         """Desenhar setas direcionais nas faixas"""
         arrow_color = COLORS['white_line']
         
-        # === SETAS HORIZONTAIS ===
+        # === SETAS HORIZONTAIS - POSICIONADAS FORA DA INTERSECÇÃO ===
+        # Calcular posições seguras para as setas (evitar intersecção)
+        intersection_start = cross_road_x - 20  # Margem da intersecção
+        intersection_end = cross_road_x + 80 + 20  # Fim da intersecção + margem
+        
         # Faixas esquerda→direita  
         for lane_y in [road_y + 25, road_y + 55]:
-            # Posições das setas ao longo da faixa
-            arrow_positions = [cross_road_x - 200, cross_road_x - 100, 
-                             cross_road_x + 200, cross_road_x + 300]
+            # Setas ANTES da intersecção (mais afastadas)
+            safe_positions_before = [cross_road_x - 250, cross_road_x - 150]
+            # Setas DEPOIS da intersecção (mais afastadas)
+            safe_positions_after = [cross_road_x + 150, cross_road_x + 250]
             
-            for arrow_x in arrow_positions:
+            for arrow_x in safe_positions_before + safe_positions_after:
                 if 0 < arrow_x < WINDOW_WIDTH:
                     self._draw_right_arrow(surface, arrow_x, lane_y, arrow_color)
         
         # Faixas direita→esquerda
         for lane_y in [road_y + 105, road_y + 135]:
-            # Posições das setas ao longo da faixa
-            arrow_positions = [cross_road_x - 200, cross_road_x - 100,
-                             cross_road_x + 200, cross_road_x + 300]
-            
-            for arrow_x in arrow_positions:
+            # Usar as mesmas posições seguras
+            for arrow_x in safe_positions_before + safe_positions_after:
                 if 0 < arrow_x < WINDOW_WIDTH:
                     self._draw_left_arrow(surface, arrow_x, lane_y, arrow_color)
         
-        # === SETAS VERTICAIS ===
-        # Faixa cima→baixo (centrada na rua vertical)
+        # === SETAS VERTICAIS - POSICIONADAS FORA DA INTERSECÇÃO ===
         arrow_x = cross_road_x + 40
-        arrow_positions = [road_y - 200, road_y - 100, road_y + 300, road_y + 400]
+        # Setas ANTES da intersecção horizontal (mais afastadas)
+        safe_y_before = [road_y - 250, road_y - 150]
+        # Setas DEPOIS da intersecção horizontal (mais afastadas)  
+        safe_y_after = [road_y + 200, road_y + 300]
         
-        for arrow_y in arrow_positions:
+        for arrow_y in safe_y_before + safe_y_after:
             if 0 < arrow_y < WINDOW_HEIGHT:
                 self._draw_down_arrow(surface, arrow_x, arrow_y, arrow_color)
     
@@ -308,39 +313,6 @@ class TrafficSim2D:
             (x, y - 4),       # Centro superior
         ]
         pygame.draw.polygon(surface, color, points)
-    
-    def _draw_lane_marking_on_surface(self, surface, start_x, start_y, length, orientation, cross_road_x=None, road_y=None):
-        """Desenhar marcação de faixa na superfície cached - CORRIGIDO para não sobrepor intersecção"""
-        # Calcular limites da intersecção se não fornecidos
-        if cross_road_x is None:
-            cross_road_x = WINDOW_WIDTH // 2 - 40
-        if road_y is None:
-            road_y = WINDOW_HEIGHT // 2 - 80
-            
-        if orientation == 'horizontal':
-            # Antes da intersecção (parar 50px antes)
-            intersection_start = cross_road_x - 50
-            for x in range(start_x, min(intersection_start, start_x + length), 30):
-                if x + 20 < intersection_start:  # Só desenhar se não vai sobrepor
-                    pygame.draw.rect(surface, COLORS['white'], (x, start_y, 20, 2))
-            
-            # Depois da intersecção (começar 50px depois)
-            intersection_end = cross_road_x + 80 + 50
-            for x in range(max(intersection_end, start_x), start_x + length, 30):
-                if x < start_x + length:
-                    pygame.draw.rect(surface, COLORS['white'], (x, start_y, 20, 2))
-        else:
-            # Antes da intersecção (parar 50px antes) 
-            intersection_start = road_y - 50
-            for y in range(start_y, min(intersection_start, start_y + length), 30):
-                if y + 20 < intersection_start:  # Só desenhar se não vai sobrepor
-                    pygame.draw.rect(surface, COLORS['white'], (start_x, y, 2, 20))
-            
-            # Depois da intersecção (começar 50px depois)
-            intersection_end = road_y + 160 + 50
-            for y in range(max(intersection_end, start_y), start_y + length, 30):
-                if y < start_y + length:
-                    pygame.draw.rect(surface, COLORS['white'], (start_x, y, 2, 20))
     
     def _draw_crosswalks_on_surface(self, surface, cross_road_x, road_y):
         """Desenhar faixas de pedestre na superfície cached"""

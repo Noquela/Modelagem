@@ -126,22 +126,29 @@ class Car:
             distance = self._calculate_distance_to_car(car_ahead)
             safe_distance = self._calculate_safe_following_distance(car_ahead)
             
-            # === SISTEMA ANTI-ENGAVETAMENTO ===
-            # Considerar velocidade relativa para evitar colisões
+            # === SISTEMA ANTI-ENGAVETAMENTO OTIMIZADO ===
+            relative_speed = self.current_speed - car_ahead.current_speed
+            
             if distance <= safe_distance:
-                # Verificar se precisa parar urgente ou apenas desacelerar
-                relative_speed = self.current_speed - car_ahead.current_speed
+                # === ANÁLISE DE RISCO ===
+                # Distância crítica (zona de perigo)
+                critical_distance = safe_distance * 0.4
+                # Distância de alerta (zona de cuidado)
+                alert_distance = safe_distance * 0.75
                 
-                if distance < safe_distance * 0.5 or relative_speed > 0.5:
-                    # Situação crítica: parar imediatamente
+                if distance < critical_distance:
+                    # PERIGO IMINENTE: parar imediatamente
                     self.should_stop = True
-                elif distance < safe_distance * 0.8:
-                    # Situação de alerta: reduzir velocidade gradualmente
-                    # Implementar desaceleração suave em vez de parada brusca
-                    speed_reduction_factor = (safe_distance - distance) / safe_distance
-                    target_speed = car_ahead.current_speed * (1.0 - speed_reduction_factor * 0.5)
-                    
-                    if self.current_speed > target_speed:
+                elif distance < alert_distance and relative_speed > 0.2:
+                    # APROXIMAÇÃO PERIGOSA: reduzir velocidade drasticamente
+                    self.should_stop = True
+                elif relative_speed > 0.4:  # Me aproximando muito rápido
+                    # VELOCIDADE PERIGOSA: começar a desacelerar
+                    self.should_stop = True
+                else:
+                    # SITUAÇÃO CONTROLADA: manter velocidade similar ao carro da frente
+                    # Apenas desacelerar se realmente necessário
+                    if distance < safe_distance * 0.9 and self.current_speed > car_ahead.current_speed:
                         self.should_stop = True
                 
                 return  # Se há carro na frente, não verificar semáforo
@@ -164,22 +171,42 @@ class Car:
             self.has_passed_intersection = True
     
     def _calculate_safe_following_distance(self, car_ahead):
-        """Calcular distância segura baseada em velocidade e personalidade"""
-        base_distance = 25  # Distância base menor para filas
+        """Calcular distância segura otimizada com anti-engavetamento"""
         
-        # Fator de velocidade - mais velocidade = mais distância
-        speed_factor = (self.current_speed / self.max_speed) * 20
+        # Usar as novas configurações
+        base_distance = CAR_CONFIG['min_following_distance']  # 32 pixels
+        queue_distance = CAR_CONFIG['queue_distance']         # 22 pixels
         
-        # Fator de personalidade
-        personality_factor = self.following_distance_factor * 15
+        # === ANÁLISE DE VELOCIDADE RELATIVA ===
+        my_speed = self.current_speed
+        ahead_speed = car_ahead.current_speed if car_ahead else 0
+        speed_difference = my_speed - ahead_speed
         
-        # Se ambos estão parados ou muito devagar, distância mínima
-        if self.current_speed < 0.2 and car_ahead.current_speed < 0.2:
-            return 22  # Distância de fila muito próxima
+        # === DISTÂNCIA BASEADA NO ESTADO ===
+        # Se ambos estão praticamente parados (fila)
+        if my_speed < 0.15 and ahead_speed < 0.15:
+            return queue_distance  # Filas compactas
         
-        # Distância dinâmica
-        safe_distance = base_distance + speed_factor + personality_factor
-        return max(safe_distance, 20)  # Mínimo absoluto
+        # === FATOR DE VELOCIDADE DINÂMICO ===
+        # Mais velocidade = mais distância necessária
+        speed_factor = (my_speed / self.max_speed) * 15
+        
+        # === FATOR DE APROXIMAÇÃO ===
+        # Se estou me aproximando rápido, aumentar distância
+        approach_factor = 1.0
+        if speed_difference > 0.3:  # Me aproximando muito rápido
+            approach_factor = 1.4
+        elif speed_difference > 0.1:  # Me aproximando
+            approach_factor = 1.2
+        
+        # === FATOR DE PERSONALIDADE OTIMIZADO ===
+        personality_factor = self.following_distance_factor * 10  # Reduzido de 15 para 10
+        
+        # === CÁLCULO FINAL ===
+        dynamic_distance = (base_distance + speed_factor + personality_factor) * approach_factor
+        
+        # Limites de segurança
+        return max(min(dynamic_distance, 80), queue_distance)  # Entre 22 e 80 pixels
     
     def _calculate_stopping_distance(self):
         """Calcular distância necessária para parar baseada na velocidade atual"""
@@ -374,7 +401,10 @@ class Car:
                 # Motoristas agressivos freiam mais tarde mas mais forte
                 personality_decel_factor = 0.8 + (self.aggression_level * 0.4)
             
-            final_deceleration = dynamic_deceleration * personality_decel_factor
+            # === APLICAR SUAVIZAÇÃO TAMBÉM NA DESACELERAÇÃO ===
+            smooth_factor = CAR_CONFIG.get('smooth_factor', 0.85)
+            
+            final_deceleration = dynamic_deceleration * personality_decel_factor * smooth_factor
             self.current_speed = max(0, self.current_speed - final_deceleration)
             
             # Estados mais precisos
@@ -401,10 +431,15 @@ class Car:
                 
                 # Aceleração gradual após parar (suavizar saída do semáforo)
                 startup_factor = 1.0
-                if self.current_speed < 0.2:  # Recém saído da parada
-                    startup_factor = 0.7  # 30% mais suave no início
+                if self.current_speed < 0.3:  # Aumentado de 0.2 para 0.3
+                    startup_factor = 0.6  # Ainda mais suave (40% menos aceleração)
                 
-                final_acceleration = self.acceleration * acceleration_curve * personality_accel_factor * startup_factor
+                # === APLICAR FATOR DE SUAVIZAÇÃO GLOBAL ===
+                smooth_factor = CAR_CONFIG.get('smooth_factor', 0.85)  # 85% da aceleração
+                
+                final_acceleration = (self.acceleration * acceleration_curve * 
+                                    personality_accel_factor * startup_factor * smooth_factor)
+                
                 self.current_speed = min(self.max_speed, self.current_speed + final_acceleration)
                 self.state = CarState.ACCELERATING
             else:
