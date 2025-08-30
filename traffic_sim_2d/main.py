@@ -3,20 +3,28 @@ import sys
 import time
 from car import Car, Direction, DriverPersonality
 from traffic_light import TrafficLightSystem
-from spawn_system import SpawnSystem
+from advanced_spawn_system import AdvancedSpawnSystem
+from traffic_analytics import TrafficAnalytics
+from event_system import EventSystem
 from config import *
 
 class TrafficSim2D:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        pygame.display.set_caption("Traffic Simulator 2D - Complete System")
+        pygame.display.set_caption("Traffic Simulator 2D - Sistema Completo Otimizado")
         self.clock = pygame.time.Clock()
+        
+        # Cache de superfícies para otimização
+        self._intersection_surface = None
+        self._intersection_dirty = True
         
         # Sistemas principais
         self.cars = []
         self.traffic_lights = TrafficLightSystem()
-        self.spawn_system = SpawnSystem()
+        self.spawn_system = AdvancedSpawnSystem()
+        self.analytics = TrafficAnalytics()
+        self.event_system = EventSystem()
         
         # Estado da simulação
         self.running = True
@@ -41,66 +49,108 @@ class TrafficSim2D:
         print()
     
     def draw_intersection(self):
-        """Desenhar a intersecção EXATA baseada nas especificações"""
-        # Fundo (grama)
-        self.screen.fill(COLORS['grass'])
+        """Intersecção otimizada com cache de superfície"""
         
-        # Rua principal horizontal (duas mãos)
-        main_road_y = 340  # Centro vertical da tela
-        pygame.draw.rect(self.screen, COLORS['asphalt'], 
-                        (0, main_road_y, WINDOW_WIDTH, MAIN_ROAD_WIDTH))
+        # Usar cache se disponível
+        if self._intersection_surface is None or self._intersection_dirty:
+            self._create_intersection_surface()
+            self._intersection_dirty = False
         
-        # Rua que corta vertical (mão única - BAIXO→CIMA)
-        cross_road_x = 540  # Centro horizontal da intersecção
-        pygame.draw.rect(self.screen, COLORS['asphalt'], 
-                        (cross_road_x, 0, CROSS_ROAD_WIDTH, WINDOW_HEIGHT))
+        # Blit cached surface
+        self.screen.blit(self._intersection_surface, (0, 0))
+    
+    def _create_intersection_surface(self):
+        """Criar superfície cacheable da intersecção"""
+        self._intersection_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        surface = self._intersection_surface
         
-        # Seta indicando direção da rua de mão única (baixo→cima)
-        arrow_points = [
-            (cross_road_x + 40, 150),  # Ponta da seta
-            (cross_road_x + 30, 170),  # Base esquerda
-            (cross_road_x + 50, 170),  # Base direita
-        ]
-        pygame.draw.polygon(self.screen, COLORS['white'], arrow_points)
+        # Fundo grama
+        surface.fill(COLORS['grass'])
         
-        # Linhas divisórias da rua principal
-        # Linha central
-        pygame.draw.rect(self.screen, COLORS['yellow_line'], 
-                        (0, main_road_y + MAIN_ROAD_WIDTH//2 - 2, WINDOW_WIDTH, 4))
+        # Posições centralizadas para ultrawide
+        center_x = WINDOW_WIDTH // 2  # 1720 pixels do centro
+        center_y = WINDOW_HEIGHT // 2  # 720 pixels do centro
         
-        # Linhas das faixas (esquerda→direita: 2 faixas)
-        lane1_y = main_road_y + 15  # Primeira faixa
-        lane2_y = main_road_y + 45  # Segunda faixa
+        # Rua principal horizontal - MAIS LARGA
+        road_y = center_y - 80  # Centralizar verticalmente
+        main_road_rect = pygame.Rect(0, road_y, WINDOW_WIDTH, 160)  # 160px = 4 faixas de 40px
+        pygame.draw.rect(surface, COLORS['asphalt'], main_road_rect)
         
-        # Linhas tracejadas entre faixas (apenas fora da intersecção)
-        for x in range(0, cross_road_x - 50, 30):
-            pygame.draw.rect(self.screen, COLORS['white'], (x, lane1_y + 15, 20, 2))
-        for x in range(cross_road_x + CROSS_ROAD_WIDTH + 50, WINDOW_WIDTH, 30):
-            pygame.draw.rect(self.screen, COLORS['white'], (x, lane1_y + 15, 20, 2))
+        # Rua que corta vertical - mão única (centralizada)
+        cross_road_x = center_x - 40  # Centralizar horizontalmente
+        cross_road_rect = pygame.Rect(cross_road_x, 0, 80, WINDOW_HEIGHT)  # 80px = 2 faixas de 40px
+        pygame.draw.rect(surface, COLORS['asphalt'], cross_road_rect)
         
-        # Linhas das faixas (direita→esquerda: 2 faixas)
-        lane3_y = main_road_y + 75  # Terceira faixa
-        lane4_y = main_road_y + 105 # Quarta faixa
+        # FAIXAS INDIVIDUAIS bem marcadas
         
-        for x in range(0, cross_road_x - 50, 30):
-            pygame.draw.rect(self.screen, COLORS['white'], (x, lane3_y + 15, 20, 2))
-        for x in range(cross_road_x + CROSS_ROAD_WIDTH + 50, WINDOW_WIDTH, 30):
-            pygame.draw.rect(self.screen, COLORS['white'], (x, lane3_y + 15, 20, 2))
+        # Rua principal - sentido esquerda→direita (2 faixas)
+        for i in range(2):
+            lane_y = road_y + 10 + (i * 35)  # Relativo à nova posição
+            self._draw_lane_marking_on_surface(surface, 0, lane_y, WINDOW_WIDTH, 'horizontal', cross_road_x, road_y)
         
-        # === FAIXAS DE PEDESTRE ===
-        # Faixas horizontais (cruzando a rua vertical)
-        for i in range(cross_road_x, cross_road_x + CROSS_ROAD_WIDTH, 8):
-            # Faixa antes da intersecção
-            pygame.draw.rect(self.screen, COLORS['white'], (i, main_road_y - 15, 4, 10))
-            # Faixa depois da intersecção
-            pygame.draw.rect(self.screen, COLORS['white'], (i, main_road_y + MAIN_ROAD_WIDTH + 5, 4, 10))
+        # Rua principal - sentido direita→esquerda (2 faixas)
+        for i in range(2):
+            lane_y = road_y + 90 + (i * 35)  # Relativo à nova posição
+            self._draw_lane_marking_on_surface(surface, 0, lane_y, WINDOW_WIDTH, 'horizontal', cross_road_x, road_y)
         
-        # Faixas verticais (cruzando a rua principal)
-        for i in range(main_road_y, main_road_y + MAIN_ROAD_WIDTH, 8):
-            # Faixa à esquerda da intersecção
-            pygame.draw.rect(self.screen, COLORS['white'], (cross_road_x - 15, i, 10, 4))
-            # Faixa à direita da intersecção
-            pygame.draw.rect(self.screen, COLORS['white'], (cross_road_x + CROSS_ROAD_WIDTH + 5, i, 10, 4))
+        # Linha divisória central (amarela sólida) - parar antes da intersecção
+        # Antes da intersecção
+        pygame.draw.rect(surface, COLORS['yellow_line'], 
+                        (0, road_y + 75, cross_road_x - 50, 4))
+        # Depois da intersecção
+        pygame.draw.rect(surface, COLORS['yellow_line'], 
+                        (cross_road_x + 80 + 50, road_y + 75, WINDOW_WIDTH - (cross_road_x + 80 + 50), 4))
+        
+        # Rua de mão única - 1 faixa centralizada
+        lane_x = cross_road_x + 20  # Centralizada na rua vertical
+        self._draw_lane_marking_on_surface(surface, lane_x, 0, WINDOW_HEIGHT, 'vertical', cross_road_x, road_y)
+        
+        # Faixas de pedestre na intersecção
+        self._draw_crosswalks_on_surface(surface, cross_road_x, road_y)
+    
+    def _draw_lane_marking_on_surface(self, surface, start_x, start_y, length, orientation, cross_road_x=None, road_y=None):
+        """Desenhar marcação de faixa na superfície cached - CORRIGIDO para não sobrepor intersecção"""
+        # Calcular limites da intersecção se não fornecidos
+        if cross_road_x is None:
+            cross_road_x = WINDOW_WIDTH // 2 - 40
+        if road_y is None:
+            road_y = WINDOW_HEIGHT // 2 - 80
+            
+        if orientation == 'horizontal':
+            # Antes da intersecção (parar 50px antes)
+            intersection_start = cross_road_x - 50
+            for x in range(start_x, min(intersection_start, start_x + length), 30):
+                if x + 20 < intersection_start:  # Só desenhar se não vai sobrepor
+                    pygame.draw.rect(surface, COLORS['white'], (x, start_y, 20, 2))
+            
+            # Depois da intersecção (começar 50px depois)
+            intersection_end = cross_road_x + 80 + 50
+            for x in range(max(intersection_end, start_x), start_x + length, 30):
+                if x < start_x + length:
+                    pygame.draw.rect(surface, COLORS['white'], (x, start_y, 20, 2))
+        else:
+            # Antes da intersecção (parar 50px antes) 
+            intersection_start = road_y - 50
+            for y in range(start_y, min(intersection_start, start_y + length), 30):
+                if y + 20 < intersection_start:  # Só desenhar se não vai sobrepor
+                    pygame.draw.rect(surface, COLORS['white'], (start_x, y, 2, 20))
+            
+            # Depois da intersecção (começar 50px depois)
+            intersection_end = road_y + 160 + 50
+            for y in range(max(intersection_end, start_y), start_y + length, 30):
+                if y < start_y + length:
+                    pygame.draw.rect(surface, COLORS['white'], (start_x, y, 2, 20))
+    
+    def _draw_crosswalks_on_surface(self, surface, cross_road_x, road_y):
+        """Desenhar faixas de pedestre na superfície cached"""
+        # Faixa horizontal (cruzando a rua vertical)
+        for i in range(cross_road_x + 5, cross_road_x + 75, 8):
+            pygame.draw.rect(surface, COLORS['white'], (i, road_y - 15, 4, 170))
+        
+        # Faixa vertical (cruzando a rua horizontal)  
+        for i in range(road_y + 5, road_y + 155, 8):
+            pygame.draw.rect(surface, COLORS['white'], (cross_road_x - 15, i, 160, 4))
+    
     
     def update_simulation(self, dt):
         """Atualizar toda a simulação"""
@@ -123,19 +173,42 @@ class TrafficSim2D:
             if car.is_out_of_bounds():
                 self.cars.remove(car)
                 self.total_cars_despawned += 1
+        
+        # Atualizar analytics
+        self.analytics.update(self.cars, self.traffic_lights)
+        
+        # Atualizar eventos
+        self.event_system.update(self.cars, self.traffic_lights)
     
     def draw_cars(self):
-        """Desenhar todos os carros"""
-        for car in self.cars:
-            car.draw(self.screen)
+        """Desenhar carros otimizado por camadas (z-order)"""
+        # Separar carros por layers para renderização correta
+        cars_by_layer = self._sort_cars_by_render_order()
+        
+        for layer in cars_by_layer:
+            for car in layer:
+                car.draw(self.screen)
+    
+    def _sort_cars_by_render_order(self):
+        """Separar carros em camadas de renderização para otimizar z-order"""
+        # Carros indo para baixo (rua vertical) ficam atrás
+        # Carros da rua horizontal ficam na frente
+        
+        vertical_cars = [car for car in self.cars if car.direction.name == 'BOTTOM_TO_TOP']
+        horizontal_cars = [car for car in self.cars if car.direction.name in ['LEFT_TO_RIGHT', 'RIGHT_TO_LEFT']]
+        
+        # Ordenar horizontal cars por Y para sobreposição correta
+        horizontal_cars.sort(key=lambda c: c.y)
+        
+        return [vertical_cars, horizontal_cars]
     
     def draw_ui(self):
         """Interface EXATA baseada no que desenvolvemos"""
         if not self.show_debug:
             return
         
-        # Fundo semi-transparente para o debug
-        debug_surface = pygame.Surface((300, 400))
+        # Fundo semi-transparente para o debug (expandido para filas)
+        debug_surface = pygame.Surface((340, 550))
         debug_surface.set_alpha(180)
         debug_surface.fill((0, 0, 0))
         self.screen.blit(debug_surface, (10, 10))
@@ -147,9 +220,16 @@ class TrafficSim2D:
         self.screen.blit(text, (20, y))
         y += 35
         
-        # Tempo de simulação
+        # Tempo de simulação e FPS
         elapsed = time.time() - self.start_time
+        fps = self.clock.get_fps()
+        fps_color = COLORS['green'] if fps >= 55 else COLORS['yellow'] if fps >= 40 else COLORS['red']
+        
         text = self.font.render(f"Tempo: {elapsed:.1f}s", True, COLORS['white'])
+        self.screen.blit(text, (20, y))
+        y += 20
+        
+        text = self.small_font.render(f"FPS: {fps:.1f}", True, fps_color)
         self.screen.blit(text, (20, y))
         y += 25
         
@@ -216,24 +296,89 @@ class TrafficSim2D:
             self.screen.blit(text, (20, y))
             y += 18
         
-        # === THROUGHPUT STATISTICS ===
+        # === ANALYTICS AVANÇADOS ===
         y += 10
-        text = self.font.render("=== THROUGHPUT ===", True, COLORS['white'])
+        text = self.font.render("=== ANALYTICS AVANÇADOS ===", True, COLORS['white'])
         self.screen.blit(text, (20, y))
         y += 25
         
-        if elapsed > 0:
-            throughput = self.total_cars_despawned / elapsed * 60  # carros por minuto
-            text = self.small_font.render(f"Throughput: {throughput:.1f} carros/min", True, COLORS['white'])
+        # Estatísticas do sistema de analytics
+        analytics_report = self.analytics.get_detailed_report()
+        
+        # Throughput
+        text = self.small_font.render(f"Throughput Total: {analytics_report['total_crossings']}", True, COLORS['white'])
+        self.screen.blit(text, (20, y))
+        y += 18
+        
+        # Velocidade média
+        text = self.small_font.render(f"Velocidade Média: {analytics_report['average_speed']:.1f}", True, COLORS['white'])
+        self.screen.blit(text, (20, y))
+        y += 18
+        
+        # Congestionamento
+        congestion_color = COLORS['green'] if analytics_report['current_congestion'] < 30 else \
+                          COLORS['yellow'] if analytics_report['current_congestion'] < 60 else COLORS['red']
+        text = self.small_font.render(f"Congestionamento: {analytics_report['current_congestion']:.0f}%", True, congestion_color)
+        self.screen.blit(text, (20, y))
+        y += 18
+        
+        # Eficiência
+        efficiency_color = COLORS['green'] if analytics_report['efficiency_rating'] > 80 else \
+                          COLORS['yellow'] if analytics_report['efficiency_rating'] > 60 else COLORS['red']
+        text = self.small_font.render(f"Eficiência: {analytics_report['efficiency_rating']:.0f}%", True, efficiency_color)
+        self.screen.blit(text, (20, y))
+        y += 18
+        
+        # Quase-colisões
+        if analytics_report['near_misses'] > 0:
+            text = self.small_font.render(f"Quase-colisões: {analytics_report['near_misses']}", True, COLORS['red'])
             self.screen.blit(text, (20, y))
-            y += 20
-            
-            # Taxa de ocupação da intersecção
-            cars_in_intersection = len([car for car in self.cars 
-                                       if 520 <= car.x <= 680 and 340 <= car.y <= 460])
-            text = self.small_font.render(f"Na Intersecção: {cars_in_intersection}", True, COLORS['white'])
+            y += 18
+        
+        # Status do rush hour
+        if hasattr(self.spawn_system, 'rush_hour_active') and self.spawn_system.rush_hour_active:
+            text = self.small_font.render("🚗 RUSH HOUR ATIVO", True, COLORS['yellow'])
             self.screen.blit(text, (20, y))
-            y += 20
+            y += 18
+        
+        # Na intersecção
+        text = self.small_font.render(f"Na Intersecção: {analytics_report.get('cars_in_intersection', 0)}", True, COLORS['white'])
+        self.screen.blit(text, (20, y))
+        y += 18
+        
+        # === SISTEMA DE FILAS ===
+        text = self.font.render("=== FILAS ===", True, COLORS['white'])
+        self.screen.blit(text, (20, y))
+        y += 20
+        
+        # Contar carros parados por direção
+        stopped_cars = {
+            'LEFT_TO_RIGHT': len([car for car in self.cars 
+                                if car.direction.name == 'LEFT_TO_RIGHT' and car.current_speed < 0.1]),
+            'RIGHT_TO_LEFT': len([car for car in self.cars 
+                                if car.direction.name == 'RIGHT_TO_LEFT' and car.current_speed < 0.1]),
+            'BOTTOM_TO_TOP': len([car for car in self.cars 
+                                if car.direction.name == 'BOTTOM_TO_TOP' and car.current_speed < 0.1])
+        }
+        
+        text = self.small_font.render(f"Fila Esq→Dir: {stopped_cars['LEFT_TO_RIGHT']}", True, COLORS['yellow'])
+        self.screen.blit(text, (20, y))
+        y += 15
+        
+        text = self.small_font.render(f"Fila Dir→Esq: {stopped_cars['RIGHT_TO_LEFT']}", True, COLORS['yellow'])
+        self.screen.blit(text, (20, y))
+        y += 15
+        
+        text = self.small_font.render(f"Fila Vertical: {stopped_cars['BOTTOM_TO_TOP']}", True, COLORS['yellow'])
+        self.screen.blit(text, (20, y))
+        y += 20
+        
+        # === GRÁFICO DE THROUGHPUT ===
+        graph_rect = pygame.Rect(WINDOW_WIDTH - 220, 20, 200, 120)
+        self.analytics.draw_throughput_graph(self.screen, graph_rect)
+        
+        # === NOTIFICAÇÕES DE EVENTOS ===
+        self.event_system.draw_notifications(self.screen, self.font)
         
         # Estado de pausa
         if self.paused:
@@ -264,7 +409,7 @@ class TrafficSim2D:
     def _reset_simulation(self):
         """Reiniciar simulação"""
         self.cars.clear()
-        self.spawn_system = SpawnSystem()
+        self.spawn_system = AdvancedSpawnSystem()
         self.traffic_lights = TrafficLightSystem()
         self.start_time = time.time()
         self.total_cars_spawned = 0

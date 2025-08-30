@@ -62,15 +62,17 @@ class TrafficLightSystem:
         }
     
     def draw(self, screen):
-        """Desenhar todos os semáforos"""
-        # Semáforo 1 - Rua principal (esquerda→direita)
-        self._draw_traffic_light(screen, self.semaforo_1_pos, self.main_road_state)
+        """Desenhar todos os semáforos com hastes direcionais"""
+        from config import TRAFFIC_LIGHTS
         
-        # Semáforo 2 - Rua principal (direita→esquerda)
-        self._draw_traffic_light(screen, self.semaforo_2_pos, self.main_road_state)
+        # Atualizar estados nos configs
+        TRAFFIC_LIGHTS['semaforo_1']['state'] = self.main_road_state
+        TRAFFIC_LIGHTS['semaforo_2']['state'] = self.main_road_state
+        TRAFFIC_LIGHTS['semaforo_3']['state'] = self.cross_road_state
         
-        # Semáforo 3 - Rua que corta (cima→baixo)
-        self._draw_traffic_light(screen, self.semaforo_3_pos, self.cross_road_state)
+        # Desenhar semáforos com hastes
+        for light_id, light_config in TRAFFIC_LIGHTS.items():
+            self._draw_traffic_light_with_arm(screen, light_config)
     
     def _draw_traffic_light(self, screen, position, state):
         """Desenhar um semáforo individual"""
@@ -78,6 +80,57 @@ class TrafficLightSystem:
         
         # Poste do semáforo
         pygame.draw.rect(screen, COLORS['pole'], (x - 8, y - 30, 16, 80))
+        
+        # Fundo da caixa do semáforo
+        pygame.draw.rect(screen, (40, 40, 40), (x - 15, y - 25, 30, 50))
+        
+        # Luz vermelha (topo)
+        red_color = COLORS['red'] if state == "red" else COLORS['dark_red']
+        pygame.draw.circle(screen, red_color, (x, y - 15), 8)
+        
+        # Luz amarela (meio)
+        yellow_color = COLORS['yellow'] if state == "yellow" else COLORS['dark_yellow']
+        pygame.draw.circle(screen, yellow_color, (x, y), 8)
+        
+        # Luz verde (base)
+        green_color = COLORS['green'] if state == "green" else COLORS['dark_green']
+        pygame.draw.circle(screen, green_color, (x, y + 15), 8)
+    
+    def _draw_traffic_light_with_arm(self, screen, light_config):
+        """Desenhar semáforo com haste direcionada para a rua"""
+        pos = light_config['pos']
+        direction = light_config['direction']
+        state = light_config['state']
+        
+        # Poste vertical
+        pygame.draw.rect(screen, COLORS['pole'], (pos[0]-4, pos[1], 8, 40))
+        
+        # Haste horizontal direcionada
+        if direction == 'horizontal_left':
+            # Haste apontando para a pista da esquerda
+            arm_start = (pos[0], pos[1]+20)
+            arm_end = (pos[0]-30, pos[1]+20)
+            light_pos = (pos[0]-35, pos[1]+20)
+        elif direction == 'horizontal_right':
+            # Haste apontando para a pista da direita
+            arm_start = (pos[0], pos[1]+20)
+            arm_end = (pos[0]+30, pos[1]+20)
+            light_pos = (pos[0]+35, pos[1]+20)
+        elif direction == 'vertical_up':
+            # Haste apontando para a pista vertical
+            arm_start = (pos[0], pos[1]+20)
+            arm_end = (pos[0], pos[1]-30)
+            light_pos = (pos[0], pos[1]-35)
+        
+        # Desenhar haste
+        pygame.draw.line(screen, COLORS['pole'], arm_start, arm_end, 3)
+        
+        # Desenhar semáforo na ponta da haste
+        self._draw_light_box(screen, light_pos, state)
+    
+    def _draw_light_box(self, screen, position, state):
+        """Desenhar caixa do semáforo"""
+        x, y = position
         
         # Fundo da caixa do semáforo
         pygame.draw.rect(screen, (40, 40, 40), (x - 15, y - 25, 30, 50))

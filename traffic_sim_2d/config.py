@@ -1,18 +1,40 @@
 # CONFIGURAÇÕES EXATAS - BASEADAS NAS ESPECIFICAÇÕES DESENVOLVIDAS E TESTADAS
 
-# Dimensões da janela
-WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 800
+# Dimensões da janela - Suporte Ultrawide 21:9
+WINDOW_WIDTH = 3440
+WINDOW_HEIGHT = 1440
 
 # Ruas - Dimensões exatas
 MAIN_ROAD_WIDTH = 120  # Rua principal mais larga (2 faixas por direção)
 CROSS_ROAD_WIDTH = 80  # Rua que corta (1 faixa)
 LANE_WIDTH = 30        # Largura de cada faixa individual
 
-# Posições dos semáforos (baseado no sistema desenvolvido)
-SEMAFORO_1 = (450, 320)   # Rua principal - controla esquerda→direita
-SEMAFORO_2 = (750, 480)   # Rua principal - controla direita→esquerda  
-SEMAFORO_3 = (540, 520)   # Rua que corta - controla baixo→cima (posicionado mais embaixo)
+# Sistema avançado de semáforos com hastes direcionais (Ultrawide)
+TRAFFIC_LIGHTS = {
+    'semaforo_1': {
+        'pos': (1580, 600),  # Controla esquerda→direita (centralizado)
+        'direction': 'horizontal_left',
+        'controls': 'LEFT_TO_RIGHT',
+        'state': 'red'
+    },
+    'semaforo_2': {
+        'pos': (1860, 740),  # Controla direita→esquerda (centralizado) 
+        'direction': 'horizontal_right', 
+        'controls': 'RIGHT_TO_LEFT',
+        'state': 'red'
+    },
+    'semaforo_3': {
+        'pos': (1680, 600),  # Controla baixo→cima (centralizado)
+        'direction': 'vertical_up',
+        'controls': 'BOTTOM_TO_TOP',
+        'state': 'red'
+    }
+}
+
+# Posições legadas (manter compatibilidade)
+SEMAFORO_1 = TRAFFIC_LIGHTS['semaforo_1']['pos']
+SEMAFORO_2 = TRAFFIC_LIGHTS['semaforo_2']['pos']
+SEMAFORO_3 = TRAFFIC_LIGHTS['semaforo_3']['pos']
 
 # Cores
 COLORS = {
