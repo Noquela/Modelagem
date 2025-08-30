@@ -820,9 +820,6 @@ class TrafficSim2D:
         last_fps_update = time.time()
         fps_display_interval = 0.5  # Atualizar FPS a cada 0.5s
         
-        # Cache para otimizações
-        cars_to_remove = []
-        
         while self.running:
             dt = self.clock.tick(60) / 1000.0  # 60 FPS
             frame_count += 1
@@ -831,73 +828,25 @@ class TrafficSim2D:
             if not self.handle_events():
                 break
             
-            # === CULLING DE PERFORMANCE ===
-            # Só atualizar simulação se não pausado
+            # Atualizar simulação se não pausado
             if not self.paused:
-                # Atualizar simulação com otimizações
-                self._update_simulation_optimized(dt)
+                self.update_simulation(dt)
             
-            # === RENDERIZAÇÃO OTIMIZADA ===
-            # Limpar apenas áreas necessárias em vez de tela toda
-            self._render_optimized()
+            # Renderizar
+            self.draw_intersection()
+            self.traffic_lights.draw(self.screen)
             
-            # === ATUALIZAÇÃO DE FPS OTIMIZADA ===
-            current_time = time.time()
-            if current_time - last_fps_update >= fps_display_interval:
-                # Calcular FPS real
-                actual_fps = frame_count / fps_display_interval
-                self._current_fps = actual_fps
-                frame_count = 0
-                last_fps_update = current_time
+            # Desenhar carros com culling básico
+            for car in self.cars:
+                if (-50 <= car.x <= WINDOW_WIDTH + 50 and
+                    -50 <= car.y <= WINDOW_HEIGHT + 50):
+                    car.draw(self.screen)
+            
+            # UI se debug habilitado
+            if self.show_debug:
+                self.draw_ui()
             
             pygame.display.flip()
-    
-    def _update_simulation_optimized(self, dt):
-        """Atualização otimizada da simulação"""
-        # Atualizar sistemas principais
-        self.update_simulation(dt)
-        
-        # === CULLING DE CARROS FORA DA TELA ===
-        # Usar compreensão de lista em vez de loop manual (mais rápido)
-        initial_count = len(self.cars)
-        self.cars = [car for car in self.cars if not car.is_out_of_bounds()]
-        removed_count = initial_count - len(self.cars)
-        self.total_cars_despawned += removed_count
-    
-    def _render_optimized(self):
-        """Renderização otimizada com culling e batch drawing"""
-        
-        # === RENDERIZAÇÃO BASE (CACHED) ===
-        self.draw_intersection()
-        self.traffic_lights.draw(self.screen)
-        
-        # === CULLING DE CARROS VISÍVEIS ===
-        # Só desenhar carros que estão na tela (otimização significativa)
-        visible_cars = []
-        screen_margin = 100  # Margem para carros parcialmente visíveis
-        
-        for car in self.cars:
-            if (-screen_margin <= car.x <= WINDOW_WIDTH + screen_margin and
-                -screen_margin <= car.y <= WINDOW_HEIGHT + screen_margin):
-                visible_cars.append(car)
-        
-        # Desenhar apenas carros visíveis
-        for car in visible_cars:
-            car.draw(self.screen)
-        
-        # === EFEITOS APENAS SE NECESSÁRIO ===
-        # Reduzir frequência de efeitos pesados
-        if hasattr(self, '_effect_frame_skip'):
-            self._effect_frame_skip = (self._effect_frame_skip + 1) % 3
-        else:
-            self._effect_frame_skip = 0
-            
-        if self._effect_frame_skip == 0:  # Efeitos a cada 3 frames
-            self.draw_dynamic_effects()
-        
-        # UI sempre visível
-        if self.show_debug:
-            self.draw_ui()
         
         # Estatísticas finais após o loop
         elapsed = time.time() - self.start_time
