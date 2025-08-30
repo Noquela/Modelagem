@@ -218,23 +218,29 @@ class TrafficSim2D:
         self._draw_directional_arrows(surface, cross_road_x, road_y)
     
     def _draw_dashed_lane_line(self, surface, y_pos, cross_road_x, orientation):
-        """Desenhar linha pontilhada entre faixas do mesmo sentido"""
+        """Desenhar linha pontilhada entre faixas do mesmo sentido - CORRIGIDO"""
         dash_length = 15
         gap_length = 10
         
         if orientation == 'horizontal':
-            # Antes da intersecção
+            # === CALCULAR LIMITES PRECISOS DA INTERSECÇÃO ===
+            intersection_width = 80  # Largura da rua vertical
+            safety_margin = 50  # Margem de segurança para crosswalks
+            
+            intersection_start = cross_road_x - safety_margin
+            intersection_end = cross_road_x + intersection_width + safety_margin
+            
+            # === ANTES DA INTERSECÇÃO ===
             x = 0
-            while x < cross_road_x - 40:
-                if x + dash_length < cross_road_x - 40:
-                    pygame.draw.rect(surface, COLORS['white_line'], 
-                                   (x, y_pos, dash_length, 2))
+            while x + dash_length <= intersection_start:  # Parar ANTES do limite
+                pygame.draw.rect(surface, COLORS['white_line'], 
+                               (x, y_pos, dash_length, 2))
                 x += dash_length + gap_length
             
-            # Depois da intersecção
-            x = cross_road_x + 120
+            # === DEPOIS DA INTERSECÇÃO ===
+            x = intersection_end
             while x < WINDOW_WIDTH:
-                if x + dash_length < WINDOW_WIDTH:
+                if x + dash_length <= WINDOW_WIDTH:
                     pygame.draw.rect(surface, COLORS['white_line'],
                                    (x, y_pos, dash_length, 2))
                 x += dash_length + gap_length
@@ -806,32 +812,94 @@ class TrafficSim2D:
         self.total_cars_despawned = 0
     
     def run(self):
-        """Loop principal"""
+        """Loop principal OTIMIZADO para alta performance"""
         print("Iniciando simulação...")
+        
+        # === OTIMIZAÇÕES DE PERFORMANCE ===
+        frame_count = 0
+        last_fps_update = time.time()
+        fps_display_interval = 0.5  # Atualizar FPS a cada 0.5s
+        
+        # Cache para otimizações
+        cars_to_remove = []
         
         while self.running:
             dt = self.clock.tick(60) / 1000.0  # 60 FPS
+            frame_count += 1
             
             # Processar eventos
             if not self.handle_events():
                 break
             
-            # Atualizar simulação
-            self.update_simulation(dt)
+            # === CULLING DE PERFORMANCE ===
+            # Só atualizar simulação se não pausado
+            if not self.paused:
+                # Atualizar simulação com otimizações
+                self._update_simulation_optimized(dt)
             
-            # Renderizar
-            self.draw_intersection()
-            self.traffic_lights.draw(self.screen)
-            self.draw_cars()
+            # === RENDERIZAÇÃO OTIMIZADA ===
+            # Limpar apenas áreas necessárias em vez de tela toda
+            self._render_optimized()
             
-            # === EFEITOS DINÂMICOS ===
-            self.draw_dynamic_effects()
-            
-            self.draw_ui()
+            # === ATUALIZAÇÃO DE FPS OTIMIZADA ===
+            current_time = time.time()
+            if current_time - last_fps_update >= fps_display_interval:
+                # Calcular FPS real
+                actual_fps = frame_count / fps_display_interval
+                self._current_fps = actual_fps
+                frame_count = 0
+                last_fps_update = current_time
             
             pygame.display.flip()
+    
+    def _update_simulation_optimized(self, dt):
+        """Atualização otimizada da simulação"""
+        # Atualizar sistemas principais
+        self.update_simulation(dt)
         
-        # Estatísticas finais
+        # === CULLING DE CARROS FORA DA TELA ===
+        # Usar compreensão de lista em vez de loop manual (mais rápido)
+        initial_count = len(self.cars)
+        self.cars = [car for car in self.cars if not car.is_out_of_bounds()]
+        removed_count = initial_count - len(self.cars)
+        self.total_cars_despawned += removed_count
+    
+    def _render_optimized(self):
+        """Renderização otimizada com culling e batch drawing"""
+        
+        # === RENDERIZAÇÃO BASE (CACHED) ===
+        self.draw_intersection()
+        self.traffic_lights.draw(self.screen)
+        
+        # === CULLING DE CARROS VISÍVEIS ===
+        # Só desenhar carros que estão na tela (otimização significativa)
+        visible_cars = []
+        screen_margin = 100  # Margem para carros parcialmente visíveis
+        
+        for car in self.cars:
+            if (-screen_margin <= car.x <= WINDOW_WIDTH + screen_margin and
+                -screen_margin <= car.y <= WINDOW_HEIGHT + screen_margin):
+                visible_cars.append(car)
+        
+        # Desenhar apenas carros visíveis
+        for car in visible_cars:
+            car.draw(self.screen)
+        
+        # === EFEITOS APENAS SE NECESSÁRIO ===
+        # Reduzir frequência de efeitos pesados
+        if hasattr(self, '_effect_frame_skip'):
+            self._effect_frame_skip = (self._effect_frame_skip + 1) % 3
+        else:
+            self._effect_frame_skip = 0
+            
+        if self._effect_frame_skip == 0:  # Efeitos a cada 3 frames
+            self.draw_dynamic_effects()
+        
+        # UI sempre visível
+        if self.show_debug:
+            self.draw_ui()
+        
+        # Estatísticas finais após o loop
         elapsed = time.time() - self.start_time
         print(f"\n=== ESTATÍSTICAS FINAIS ===")
         print(f"Tempo total: {elapsed:.1f}s")

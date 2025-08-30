@@ -117,33 +117,80 @@ class Car:
         self._update_state()
     
     def check_obstacles(self, all_cars, traffic_lights):
-        """Algoritmo EXATO do HTML"""
+        """Algoritmo OTIMIZADO de detecção de obstáculos"""
         self.should_stop = False
         
-        # PRIORIDADE 1: Carros à frente
+        # PRIORIDADE 1: Carros à frente - DETECÇÃO INTELIGENTE
         car_ahead = self._get_car_ahead(all_cars)
         if car_ahead:
             distance = self._calculate_distance_to_car(car_ahead)
-            min_distance = 35  # Distância pequena como no HTML
+            safe_distance = self._calculate_safe_following_distance(car_ahead)
             
-            if distance <= min_distance:
-                self.should_stop = True
-                return  # EXATO: Se há carro na frente, NÃO verificar semáforo
+            # === SISTEMA ANTI-ENGAVETAMENTO ===
+            # Considerar velocidade relativa para evitar colisões
+            if distance <= safe_distance:
+                # Verificar se precisa parar urgente ou apenas desacelerar
+                relative_speed = self.current_speed - car_ahead.current_speed
+                
+                if distance < safe_distance * 0.5 or relative_speed > 0.5:
+                    # Situação crítica: parar imediatamente
+                    self.should_stop = True
+                elif distance < safe_distance * 0.8:
+                    # Situação de alerta: reduzir velocidade gradualmente
+                    # Implementar desaceleração suave em vez de parada brusca
+                    speed_reduction_factor = (safe_distance - distance) / safe_distance
+                    target_speed = car_ahead.current_speed * (1.0 - speed_reduction_factor * 0.5)
+                    
+                    if self.current_speed > target_speed:
+                        self.should_stop = True
+                
+                return  # Se há carro na frente, não verificar semáforo
         
-        # PRIORIDADE 2: Semáforos - LÓGICA EXATA DO HTML
+        # PRIORIDADE 2: Semáforos - LÓGICA APRIMORADA
         if not self.has_passed_intersection:
             distance_to_intersection = self._get_distance_to_intersection()
             should_stop_at_light = self._should_stop_at_traffic_light(traffic_lights)
             
-            # REGRA DO HTML: Só parar se conseguir parar ANTES da intersecção
-            minimum_stop_distance = 40  # HTML usa 8, mas 2D precisa ser maior
+            # === CÁLCULO DINÂMICO DE DISTÂNCIA DE PARADA ===
+            stopping_distance = self._calculate_stopping_distance()
+            safety_margin = 20  # Margem de segurança
+            minimum_stop_distance = stopping_distance + safety_margin
             
             if should_stop_at_light and distance_to_intersection > minimum_stop_distance:
                 self.should_stop = True
         
-        # Marcar se passou (EXATO como HTML)
+        # Marcar se passou a intersecção
         if self._has_passed_intersection() and not self.has_passed_intersection:
             self.has_passed_intersection = True
+    
+    def _calculate_safe_following_distance(self, car_ahead):
+        """Calcular distância segura baseada em velocidade e personalidade"""
+        base_distance = 25  # Distância base menor para filas
+        
+        # Fator de velocidade - mais velocidade = mais distância
+        speed_factor = (self.current_speed / self.max_speed) * 20
+        
+        # Fator de personalidade
+        personality_factor = self.following_distance_factor * 15
+        
+        # Se ambos estão parados ou muito devagar, distância mínima
+        if self.current_speed < 0.2 and car_ahead.current_speed < 0.2:
+            return 22  # Distância de fila muito próxima
+        
+        # Distância dinâmica
+        safe_distance = base_distance + speed_factor + personality_factor
+        return max(safe_distance, 20)  # Mínimo absoluto
+    
+    def _calculate_stopping_distance(self):
+        """Calcular distância necessária para parar baseada na velocidade atual"""
+        if self.current_speed <= 0:
+            return 0
+        
+        # Fórmula física: d = v²/(2*a) + tempo_reação * v
+        reaction_distance = self.current_speed * self.reaction_time * 10  # Converter para pixels
+        braking_distance = (self.current_speed ** 2) / (2 * self.deceleration * 10)
+        
+        return reaction_distance + braking_distance
     
     def _get_car_ahead(self, all_cars):
         """Encontrar carro à frente na mesma faixa"""
@@ -311,15 +358,54 @@ class Car:
         return False
     
     def _update_physics(self):
-        """Atualizar física do movimento"""
+        """Atualizar física do movimento - SUAVIZADA E REALÍSTICA"""
+        
         if self.should_stop:
-            # Desacelerar
-            self.current_speed = max(0, self.current_speed - self.deceleration)
-            self.state = CarState.STOPPING if self.current_speed > 0 else CarState.WAITING
+            # === DESACELERAÇÃO SUAVIZADA ===
+            # Desaceleração progressiva baseada na velocidade atual
+            speed_factor = self.current_speed / self.max_speed  # 0.0 a 1.0
+            
+            # Desaceleração mais intensa quando rápido, mais suave quando lento
+            dynamic_deceleration = self.deceleration * (0.5 + speed_factor * 0.5)
+            
+            # Personalidade afeta a desaceleração
+            personality_decel_factor = 1.0
+            if hasattr(self, 'aggression_level'):
+                # Motoristas agressivos freiam mais tarde mas mais forte
+                personality_decel_factor = 0.8 + (self.aggression_level * 0.4)
+            
+            final_deceleration = dynamic_deceleration * personality_decel_factor
+            self.current_speed = max(0, self.current_speed - final_deceleration)
+            
+            # Estados mais precisos
+            if self.current_speed > 0.1:
+                self.state = CarState.STOPPING
+            else:
+                self.current_speed = 0  # Parar completamente
+                self.state = CarState.WAITING
+                
         else:
-            # Acelerar até velocidade máxima
+            # === ACELERAÇÃO SUAVIZADA ===
             if self.current_speed < self.max_speed:
-                self.current_speed = min(self.max_speed, self.current_speed + self.acceleration)
+                # Curva de aceleração realística 
+                speed_ratio = self.current_speed / self.max_speed
+                
+                # Aceleração forte no início, mais fraca próximo da velocidade máxima
+                acceleration_curve = 1.0 - (speed_ratio * 0.6)  # Reduzi de 0.8 para 0.6
+                
+                # Personalidade afeta aceleração
+                personality_accel_factor = 1.0
+                if hasattr(self, 'aggression_level'):
+                    # Motoristas agressivos aceleram mais
+                    personality_accel_factor = 0.8 + (self.aggression_level * 0.4)
+                
+                # Aceleração gradual após parar (suavizar saída do semáforo)
+                startup_factor = 1.0
+                if self.current_speed < 0.2:  # Recém saído da parada
+                    startup_factor = 0.7  # 30% mais suave no início
+                
+                final_acceleration = self.acceleration * acceleration_curve * personality_accel_factor * startup_factor
+                self.current_speed = min(self.max_speed, self.current_speed + final_acceleration)
                 self.state = CarState.ACCELERATING
             else:
                 self.state = CarState.DRIVING
