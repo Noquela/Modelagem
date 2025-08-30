@@ -69,14 +69,20 @@ class Car:
         
         if self.direction == Direction.LEFT_TO_RIGHT:
             x = -30  # Fora da tela à esquerda
-            # Faixas da parte superior da rua
-            y = road_y + 10 + (self.lane * 35)  # Primeira e segunda faixa
+            # Faixas organizadas: lane 0 = externa, lane 1 = interna
+            if self.lane == 0:
+                y = road_y + 40  # Faixa externa (mais afastada do centro)
+            else:
+                y = road_y + 25  # Faixa interna (mais próxima do centro)
         elif self.direction == Direction.RIGHT_TO_LEFT:
             x = WINDOW_WIDTH + 30  # Fora da tela à direita
-            # Faixas da parte inferior da rua
-            y = road_y + 125 - (self.lane * 35)  # Terceira e quarta faixa
+            # Faixas organizadas: lane 0 = interna, lane 1 = externa
+            if self.lane == 0:
+                y = road_y + 105  # Faixa interna (mais próxima do centro)
+            else:
+                y = road_y + 135  # Faixa externa (mais afastada do centro)
         elif self.direction == Direction.TOP_TO_BOTTOM:
-            x = cross_road_x + 20  # Centralizado na rua vertical
+            x = cross_road_x + 25  # Centralizado na faixa de descida
             y = -30  # Fora da tela DE CIMA
         
         return x, y

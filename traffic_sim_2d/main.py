@@ -118,26 +118,190 @@ class TrafficSim2D:
         # === MARCAÇÕES VIÁRIAS PREMIUM ===
         self._draw_premium_lane_markings(surface, cross_road_x, road_y)
         
-        # === FAIXAS DE PEDESTRE DETALHADAS ===
-        self._draw_detailed_crosswalks(surface, cross_road_x, road_y)
+        # === FAIXAS DE PEDESTRE ORGANIZADAS ===
+        self._draw_organized_crosswalks(surface, cross_road_x, road_y)
         
         # === ELEMENTOS URBANOS ===
         self._draw_urban_elements(surface, cross_road_x, road_y)
         
-        # === FAIXAS INDIVIDUAIS ===
-        # Rua principal - sentido esquerda→direita (2 faixas)
-        for i in range(2):
-            lane_y = road_y + 10 + (i * 35)
-            self._draw_lane_marking_on_surface(surface, 0, lane_y, WINDOW_WIDTH, 'horizontal', cross_road_x, road_y)
+        # === SISTEMA DE FAIXAS ORGANIZADO ===
+        self._draw_organized_lane_system(surface, cross_road_x, road_y)
+    
+    def _draw_organized_crosswalks(self, surface, cross_road_x, road_y):
+        """Faixas de pedestres organizadas e limpas"""
         
-        # Rua principal - sentido direita→esquerda (2 faixas)
-        for i in range(2):
-            lane_y = road_y + 90 + (i * 35)
-            self._draw_lane_marking_on_surface(surface, 0, lane_y, WINDOW_WIDTH, 'horizontal', cross_road_x, road_y)
+        # === FAIXA HORIZONTAL (NORTE-SUL) ===
+        # Posicionada nas bordas da intersecção
+        crosswalk_north_y = road_y - 10  # Borda norte da intersecção
+        crosswalk_south_y = road_y + 170  # Borda sul da intersecção
         
-        # Rua de mão única - 1 faixa centralizada
-        lane_x = cross_road_x + 20
-        self._draw_lane_marking_on_surface(surface, lane_x, 0, WINDOW_HEIGHT, 'vertical', cross_road_x, road_y)
+        # Faixa norte (entrada da intersecção)
+        for i in range(cross_road_x + 10, cross_road_x + 70, 10):
+            # Faixas brancas com espaçamento organizado
+            pygame.draw.rect(surface, COLORS['crosswalk'], 
+                           (i, crosswalk_north_y, 6, 20))
+            # Sombra sutil
+            pygame.draw.rect(surface, COLORS['shadow_light'], 
+                           (i + 1, crosswalk_north_y + 1, 6, 20))
+        
+        # Faixa sul (saída da intersecção)
+        for i in range(cross_road_x + 10, cross_road_x + 70, 10):
+            pygame.draw.rect(surface, COLORS['crosswalk'],
+                           (i, crosswalk_south_y, 6, 20))
+            pygame.draw.rect(surface, COLORS['shadow_light'],
+                           (i + 1, crosswalk_south_y + 1, 6, 20))
+        
+        # === FAIXA VERTICAL (LESTE-OESTE) ===
+        # Posicionada nas bordas da intersecção vertical
+        crosswalk_west_x = cross_road_x - 10  # Borda oeste da intersecção
+        crosswalk_east_x = cross_road_x + 90  # Borda leste da intersecção
+        
+        # Faixa oeste (entrada da intersecção)
+        for i in range(road_y + 10, road_y + 150, 10):
+            pygame.draw.rect(surface, COLORS['crosswalk'],
+                           (crosswalk_west_x, i, 20, 6))
+            pygame.draw.rect(surface, COLORS['shadow_light'],
+                           (crosswalk_west_x + 1, i + 1, 20, 6))
+        
+        # Faixa leste (saída da intersecção)
+        for i in range(road_y + 10, road_y + 150, 10):
+            pygame.draw.rect(surface, COLORS['crosswalk'],
+                           (crosswalk_east_x, i, 20, 6))
+            pygame.draw.rect(surface, COLORS['shadow_light'],
+                           (crosswalk_east_x + 1, i + 1, 20, 6))
+    
+    def _draw_organized_lane_system(self, surface, cross_road_x, road_y):
+        """Sistema de faixas realístico e organizado - Padrão brasileiro"""
+        
+        # === 1. LINHA DIVISÓRIA CENTRAL (AMARELA CONTÍNUA) ===
+        central_y = road_y + 80  # Centro da rua principal
+        
+        # Antes da intersecção
+        pygame.draw.rect(surface, COLORS['yellow_line'], 
+                        (0, central_y, cross_road_x - 40, 4))
+        
+        # Depois da intersecção  
+        pygame.draw.rect(surface, COLORS['yellow_line'],
+                        (cross_road_x + 120, central_y, WINDOW_WIDTH - (cross_road_x + 120), 4))
+        
+        # === 2. FAIXAS SENTIDO ESQUERDA→DIREITA ===
+        # Faixa 1 (mais externa)
+        lane1_y = road_y + 25
+        self._draw_dashed_lane_line(surface, lane1_y, cross_road_x, 'horizontal')
+        
+        # Faixa 2 (mais interna - próxima ao centro)
+        lane2_y = road_y + 55
+        self._draw_dashed_lane_line(surface, lane2_y, cross_road_x, 'horizontal')
+        
+        # === 3. FAIXAS SENTIDO DIREITA→ESQUERDA ===
+        # Faixa 3 (mais interna - próxima ao centro)
+        lane3_y = road_y + 105  
+        self._draw_dashed_lane_line(surface, lane3_y, cross_road_x, 'horizontal')
+        
+        # Faixa 4 (mais externa)
+        lane4_y = road_y + 135
+        self._draw_dashed_lane_line(surface, lane4_y, cross_road_x, 'horizontal')
+        
+        # === 4. FAIXA VERTICAL (RUA QUE CORTA) ===
+        # Linha divisória central vertical
+        vertical_center_x = cross_road_x + 40
+        
+        # Antes da intersecção
+        pygame.draw.rect(surface, COLORS['white_line'],
+                        (vertical_center_x, 0, 2, road_y - 40))
+        
+        # Depois da intersecção
+        pygame.draw.rect(surface, COLORS['white_line'],
+                        (vertical_center_x, road_y + 200, 2, WINDOW_HEIGHT - (road_y + 200)))
+        
+        # === 5. SETAS DIRECIONAIS ===
+        self._draw_directional_arrows(surface, cross_road_x, road_y)
+    
+    def _draw_dashed_lane_line(self, surface, y_pos, cross_road_x, orientation):
+        """Desenhar linha pontilhada entre faixas do mesmo sentido"""
+        dash_length = 15
+        gap_length = 10
+        
+        if orientation == 'horizontal':
+            # Antes da intersecção
+            x = 0
+            while x < cross_road_x - 40:
+                if x + dash_length < cross_road_x - 40:
+                    pygame.draw.rect(surface, COLORS['white_line'], 
+                                   (x, y_pos, dash_length, 2))
+                x += dash_length + gap_length
+            
+            # Depois da intersecção
+            x = cross_road_x + 120
+            while x < WINDOW_WIDTH:
+                if x + dash_length < WINDOW_WIDTH:
+                    pygame.draw.rect(surface, COLORS['white_line'],
+                                   (x, y_pos, dash_length, 2))
+                x += dash_length + gap_length
+    
+    def _draw_directional_arrows(self, surface, cross_road_x, road_y):
+        """Desenhar setas direcionais nas faixas"""
+        arrow_color = COLORS['white_line']
+        
+        # === SETAS HORIZONTAIS ===
+        # Faixas esquerda→direita  
+        for lane_y in [road_y + 25, road_y + 55]:
+            # Posições das setas ao longo da faixa
+            arrow_positions = [cross_road_x - 200, cross_road_x - 100, 
+                             cross_road_x + 200, cross_road_x + 300]
+            
+            for arrow_x in arrow_positions:
+                if 0 < arrow_x < WINDOW_WIDTH:
+                    self._draw_right_arrow(surface, arrow_x, lane_y, arrow_color)
+        
+        # Faixas direita→esquerda
+        for lane_y in [road_y + 105, road_y + 135]:
+            # Posições das setas ao longo da faixa
+            arrow_positions = [cross_road_x - 200, cross_road_x - 100,
+                             cross_road_x + 200, cross_road_x + 300]
+            
+            for arrow_x in arrow_positions:
+                if 0 < arrow_x < WINDOW_WIDTH:
+                    self._draw_left_arrow(surface, arrow_x, lane_y, arrow_color)
+        
+        # === SETAS VERTICAIS ===
+        # Faixa cima→baixo (centrada na rua vertical)
+        arrow_x = cross_road_x + 40
+        arrow_positions = [road_y - 200, road_y - 100, road_y + 300, road_y + 400]
+        
+        for arrow_y in arrow_positions:
+            if 0 < arrow_y < WINDOW_HEIGHT:
+                self._draw_down_arrow(surface, arrow_x, arrow_y, arrow_color)
+    
+    def _draw_right_arrow(self, surface, x, y, color):
+        """Desenhar seta apontando para direita"""
+        points = [
+            (x - 8, y - 4),   # Ponta esquerda superior
+            (x + 4, y),       # Ponta direita
+            (x - 8, y + 4),   # Ponta esquerda inferior
+            (x - 4, y),       # Centro esquerdo
+        ]
+        pygame.draw.polygon(surface, color, points)
+    
+    def _draw_left_arrow(self, surface, x, y, color):
+        """Desenhar seta apontando para esquerda"""
+        points = [
+            (x + 8, y - 4),   # Ponta direita superior
+            (x - 4, y),       # Ponta esquerda
+            (x + 8, y + 4),   # Ponta direita inferior
+            (x + 4, y),       # Centro direito
+        ]
+        pygame.draw.polygon(surface, color, points)
+    
+    def _draw_down_arrow(self, surface, x, y, color):
+        """Desenhar seta apontando para baixo"""
+        points = [
+            (x - 4, y - 8),   # Ponta superior esquerda
+            (x, y + 4),       # Ponta inferior
+            (x + 4, y - 8),   # Ponta superior direita
+            (x, y - 4),       # Centro superior
+        ]
+        pygame.draw.polygon(surface, color, points)
     
     def _draw_lane_marking_on_surface(self, surface, start_x, start_y, length, orientation, cross_road_x=None, road_y=None):
         """Desenhar marcação de faixa na superfície cached - CORRIGIDO para não sobrepor intersecção"""
