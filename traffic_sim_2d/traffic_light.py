@@ -129,20 +129,72 @@ class TrafficLightSystem:
         self._draw_light_box(screen, light_pos, state)
     
     def _draw_light_box(self, screen, position, state):
-        """Desenhar caixa do semáforo"""
+        """Caixa do semáforo com efeitos ultra-realísticos"""
         x, y = position
         
-        # Fundo da caixa do semáforo
-        pygame.draw.rect(screen, (40, 40, 40), (x - 15, y - 25, 30, 50))
+        # === SOMBRA DA CAIXA ===
+        shadow_rect = pygame.Rect(x - 17, y - 27, 34, 54)
+        shadow_surface = pygame.Surface((34, 54), pygame.SRCALPHA)
+        shadow_surface.fill((*COLORS['shadow'][:3], 100))
+        screen.blit(shadow_surface, (x - 17, y - 27))
         
-        # Luz vermelha (topo)
-        red_color = COLORS['red'] if state == "red" else COLORS['dark_red']
-        pygame.draw.circle(screen, red_color, (x, y - 15), 8)
+        # === CAIXA PRINCIPAL COM GRADIENTE ===
+        box_rect = pygame.Rect(x - 15, y - 25, 30, 50)
+        pygame.draw.rect(screen, (40, 40, 40), box_rect)
+        # Gradiente superior (mais claro)
+        pygame.draw.rect(screen, (60, 60, 60), 
+                        (x - 15, y - 25, 30, 12))
+        # Gradiente inferior (mais escuro)
+        pygame.draw.rect(screen, (25, 25, 25), 
+                        (x - 15, y + 13, 30, 12))
         
-        # Luz amarela (meio)
-        yellow_color = COLORS['yellow'] if state == "yellow" else COLORS['dark_yellow']
-        pygame.draw.circle(screen, yellow_color, (x, y), 8)
+        # === BORDA METÁLICA ===
+        pygame.draw.rect(screen, COLORS['pole_highlight'], box_rect, 2)
+        pygame.draw.rect(screen, (180, 180, 180), box_rect, 1)
         
-        # Luz verde (base)
-        green_color = COLORS['green'] if state == "green" else COLORS['dark_green']
-        pygame.draw.circle(screen, green_color, (x, y + 15), 8)
+        # === LUZES COM EFEITOS AVANÇADOS ===
+        light_positions = [(x, y - 15), (x, y), (x, y + 15)]
+        light_colors = ['red', 'yellow', 'green']
+        light_states = [state == 'red', state == 'yellow', state == 'green']
+        
+        for i, (pos, color, is_active) in enumerate(zip(light_positions, light_colors, light_states)):
+            # === FUNDO DA LUZ ===
+            pygame.draw.circle(screen, (15, 15, 15), pos, 10)
+            pygame.draw.circle(screen, (30, 30, 30), pos, 9)
+            pygame.draw.circle(screen, (20, 20, 20), pos, 8)
+            
+            if is_active:
+                # === LUZ ATIVA COM MÚLTIPLAS CAMADAS DE BRILHO ===
+                base_color = COLORS[color]
+                
+                # Efeito de brilho externo (múltiplas camadas)
+                for radius in range(20, 8, -3):
+                    alpha = max(0, 80 - (20 - radius) * 8)
+                    glow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surface, (*base_color, alpha), 
+                                     (radius, radius), radius)
+                    screen.blit(glow_surface, (pos[0] - radius, pos[1] - radius))
+                
+                # Luz principal
+                pygame.draw.circle(screen, base_color, pos, 8)
+                
+                # Brilho interno intenso
+                inner_color = tuple(min(255, c + 100) for c in base_color)
+                pygame.draw.circle(screen, inner_color, pos, 6)
+                
+                # Núcleo super brilhante
+                core_color = tuple(min(255, c + 150) for c in base_color)
+                pygame.draw.circle(screen, core_color, pos, 4)
+                
+                # Reflexo realístico
+                pygame.draw.circle(screen, (255, 255, 255), 
+                                 (pos[0] - 2, pos[1] - 2), 2)
+                pygame.draw.circle(screen, (255, 255, 255, 150), 
+                                 (pos[0] - 1, pos[1] - 1), 1)
+            else:
+                # === LUZ DESLIGADA ===
+                dark_color = COLORS[f'{color}_dark']
+                pygame.draw.circle(screen, dark_color, pos, 8)
+                # Reflexo sutil mesmo desligada
+                pygame.draw.circle(screen, (80, 80, 80), pos, 6)
+                pygame.draw.circle(screen, (60, 60, 60), pos, 4)

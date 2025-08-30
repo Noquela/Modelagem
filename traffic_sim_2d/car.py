@@ -344,21 +344,138 @@ class Car:
         return False
     
     def draw(self, screen):
-        """Desenhar o carro na tela"""
-        # Corpo do carro
-        pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+        """Desenhar carro com detalhes ultra-realísticos"""
         
-        # Janelas (retângulo menor e mais escuro)
-        pygame.draw.rect(screen, (30, 30, 30), 
-                        (self.x + 3, self.y + 2, self.width - 6, self.height - 4))
+        # === SOMBRA DO CARRO ===
+        shadow_color = (*COLORS['shadow'][:3], 60)
+        shadow_surface = pygame.Surface((self.width + 4, self.height + 4), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surface, shadow_color, 
+                           (0, 0, self.width + 4, self.height + 4))
+        screen.blit(shadow_surface, (self.x - 2, self.y + 2))
         
-        # Indicador de personalidade (pequeno retângulo colorido)
+        # === CORPO PRINCIPAL COM GRADIENTE ===
+        car_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        pygame.draw.rect(screen, self.color, car_rect)
+        
+        # Brilho superior para efeito 3D
+        highlight_color = tuple(min(255, c + 40) for c in self.color[:3])
+        pygame.draw.rect(screen, highlight_color, 
+                        (self.x, self.y, self.width, self.height // 3))
+        
+        # Sombra inferior para profundidade
+        shadow_color = tuple(max(0, c - 30) for c in self.color[:3])
+        pygame.draw.rect(screen, shadow_color, 
+                        (self.x, self.y + (self.height * 2) // 3, self.width, self.height // 3))
+        
+        # === JANELAS REALÍSTICAS ===
+        window_rect = (self.x + 3, self.y + 2, self.width - 6, self.height - 4)
+        pygame.draw.rect(screen, COLORS['window_tint'], window_rect)
+        
+        # Reflexo nas janelas
+        reflection_surface = pygame.Surface((self.width - 8, self.height - 6), pygame.SRCALPHA)
+        reflection_color = COLORS['window_reflection']
+        pygame.draw.rect(reflection_surface, reflection_color, 
+                        (0, 0, (self.width - 8) // 2, self.height - 6))
+        screen.blit(reflection_surface, (self.x + 4, self.y + 3))
+        
+        # === RODAS DETALHADAS ===
+        wheel_positions = [
+            (self.x + 4, self.y + 3),    # Dianteira esquerda
+            (self.x + self.width - 4, self.y + 3),  # Dianteira direita
+            (self.x + 4, self.y + self.height - 3), # Traseira esquerda
+            (self.x + self.width - 4, self.y + self.height - 3) # Traseira direita
+        ]
+        
+        for wheel_pos in wheel_positions:
+            # Sombra da roda
+            pygame.draw.circle(screen, COLORS['shadow_light'][:3], 
+                             (wheel_pos[0] + 1, wheel_pos[1] + 1), 4)
+            # Pneu
+            pygame.draw.circle(screen, COLORS['wheel_tire'], wheel_pos, 3)
+            # Aro
+            pygame.draw.circle(screen, COLORS['wheel_rim'], wheel_pos, 2)
+            # Detalhe cromado
+            pygame.draw.circle(screen, COLORS['wheel_chrome'], wheel_pos, 1)
+        
+        # === FARÓIS DIRECIONAIS ===
+        self._draw_headlights(screen)
+        
+        # === LUZES DE FREIO ===
+        if self.should_stop and self.current_speed > 0.1:
+            self._draw_brake_lights(screen)
+        
+        # === INDICADOR DE PERSONALIDADE SUTIL ===
         personality_colors = {
-            DriverPersonality.AGGRESSIVE: (255, 0, 0),
-            DriverPersonality.NORMAL: (0, 255, 0),
-            DriverPersonality.CONSERVATIVE: (0, 0, 255),
-            DriverPersonality.ELDERLY: (255, 255, 0)
+            DriverPersonality.AGGRESSIVE: (*COLORS['red'][:3], 120),
+            DriverPersonality.NORMAL: (*COLORS['green'][:3], 120),
+            DriverPersonality.CONSERVATIVE: (*COLORS['blue'][:3], 120),
+            DriverPersonality.ELDERLY: (*COLORS['yellow'][:3], 120)
         }
         
         color = personality_colors[self.personality]
-        pygame.draw.rect(screen, color, (self.x, self.y - 5, 5, 3))
+        indicator_surface = pygame.Surface((8, 3), pygame.SRCALPHA)
+        indicator_surface.fill(color)
+        screen.blit(indicator_surface, (self.x, self.y - 6))
+    
+    def _draw_headlights(self, screen):
+        """Desenhar faróis baseados na direção"""
+        headlight_color = COLORS['headlight']
+        
+        if self.direction == Direction.LEFT_TO_RIGHT:
+            # Faróis à direita (frente do carro)
+            pygame.draw.circle(screen, headlight_color, 
+                              (self.x + self.width - 2, self.y + 4), 2)
+            pygame.draw.circle(screen, headlight_color, 
+                              (self.x + self.width - 2, self.y + self.height - 4), 2)
+            # Efeito de brilho
+            glow_surface = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*headlight_color, 60), (4, 4), 4)
+            screen.blit(glow_surface, (self.x + self.width - 6, self.y))
+            screen.blit(glow_surface, (self.x + self.width - 6, self.y + self.height - 8))
+            
+        elif self.direction == Direction.RIGHT_TO_LEFT:
+            # Faróis à esquerda (frente do carro)
+            pygame.draw.circle(screen, headlight_color, 
+                              (self.x + 2, self.y + 4), 2)
+            pygame.draw.circle(screen, headlight_color, 
+                              (self.x + 2, self.y + self.height - 4), 2)
+            # Efeito de brilho
+            glow_surface = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*headlight_color, 60), (4, 4), 4)
+            screen.blit(glow_surface, (self.x - 2, self.y))
+            screen.blit(glow_surface, (self.x - 2, self.y + self.height - 8))
+            
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            # Faróis embaixo (frente do carro)
+            pygame.draw.circle(screen, headlight_color, 
+                              (self.x + 4, self.y + self.height - 2), 2)
+            pygame.draw.circle(screen, headlight_color, 
+                              (self.x + self.width - 4, self.y + self.height - 2), 2)
+            # Efeito de brilho
+            glow_surface = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (*headlight_color, 60), (4, 4), 4)
+            screen.blit(glow_surface, (self.x, self.y + self.height - 6))
+            screen.blit(glow_surface, (self.x + self.width - 8, self.y + self.height - 6))
+    
+    def _draw_brake_lights(self, screen):
+        """Desenhar luzes de freio"""
+        brake_color = COLORS['brake_light']
+        brake_surface = pygame.Surface((4, 6), pygame.SRCALPHA)
+        brake_surface.fill(brake_color)
+        
+        if self.direction == Direction.LEFT_TO_RIGHT:
+            # Luzes traseiras à esquerda
+            screen.blit(brake_surface, (self.x - 2, self.y + 2))
+            screen.blit(brake_surface, (self.x - 2, self.y + self.height - 8))
+            
+        elif self.direction == Direction.RIGHT_TO_LEFT:
+            # Luzes traseiras à direita
+            screen.blit(brake_surface, (self.x + self.width - 2, self.y + 2))
+            screen.blit(brake_surface, (self.x + self.width - 2, self.y + self.height - 8))
+            
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            # Luzes traseiras em cima
+            brake_surface_h = pygame.Surface((6, 4), pygame.SRCALPHA)
+            brake_surface_h.fill(brake_color)
+            screen.blit(brake_surface_h, (self.x + 2, self.y - 2))
+            screen.blit(brake_surface_h, (self.x + self.width - 8, self.y - 2))

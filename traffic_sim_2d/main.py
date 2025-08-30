@@ -1,6 +1,8 @@
 import pygame
 import sys
 import time
+import random
+import math
 from car import Car, Direction, DriverPersonality
 from traffic_light import TrafficLightSystem
 from advanced_spawn_system import AdvancedSpawnSystem
@@ -36,6 +38,11 @@ class TrafficSim2D:
         self.total_cars_spawned = 0
         self.total_cars_despawned = 0
         
+        # === SISTEMA DE ANIMAÇÕES ===
+        self.animation_time = 0
+        self.weather_particles = []
+        self.dust_particles = []
+        
         # Fonte para UI
         self.font = pygame.font.Font(None, 24)
         self.small_font = pygame.font.Font(None, 18)
@@ -60,53 +67,77 @@ class TrafficSim2D:
         self.screen.blit(self._intersection_surface, (0, 0))
     
     def _create_intersection_surface(self):
-        """Criar superfície cacheable da intersecção"""
+        """Intersecção com detalhes urbanos ultra-realísticos"""
         self._intersection_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
         surface = self._intersection_surface
         
-        # Fundo grama
+        # === FUNDO COM TEXTURA DE GRAMA ===
         surface.fill(COLORS['grass'])
         
-        # Posições centralizadas para ultrawide
-        center_x = WINDOW_WIDTH // 2  # 1720 pixels do centro
-        center_y = WINDOW_HEIGHT // 2  # 720 pixels do centro
+        # Adicionar textura de grama (pontos aleatórios mais escuros)
+        for _ in range(800):
+            x = random.randint(0, WINDOW_WIDTH)
+            y = random.randint(0, WINDOW_HEIGHT)
+            if not self._is_on_road(x, y):  # Só na grama
+                pygame.draw.circle(surface, COLORS['grass_dark'], (x, y), 1)
         
-        # Rua principal horizontal - MAIS LARGA
-        road_y = center_y - 80  # Centralizar verticalmente
-        main_road_rect = pygame.Rect(0, road_y, WINDOW_WIDTH, 160)  # 160px = 4 faixas de 40px
+        # Variações de cor na grama
+        for _ in range(400):
+            x = random.randint(0, WINDOW_WIDTH)
+            y = random.randint(0, WINDOW_HEIGHT)
+            if not self._is_on_road(x, y):
+                pygame.draw.circle(surface, COLORS['grass_light'], (x, y), 1)
+        
+        # === POSIÇÕES CENTRALIZADAS ===
+        center_x = WINDOW_WIDTH // 2
+        center_y = WINDOW_HEIGHT // 2
+        road_y = center_y - 80
+        cross_road_x = center_x - 40
+        
+        # === RUAS COM TEXTURA DE ASFALTO ===
+        # Rua principal
+        main_road_rect = pygame.Rect(0, road_y, WINDOW_WIDTH, 160)
         pygame.draw.rect(surface, COLORS['asphalt'], main_road_rect)
         
-        # Rua que corta vertical - mão única (centralizada)
-        cross_road_x = center_x - 40  # Centralizar horizontalmente
-        cross_road_rect = pygame.Rect(cross_road_x, 0, 80, WINDOW_HEIGHT)  # 80px = 2 faixas de 40px
+        # Textura do asfalto (pontos mais claros)
+        for _ in range(300):
+            x = random.randint(0, WINDOW_WIDTH)
+            y = random.randint(road_y, road_y + 160)
+            pygame.draw.circle(surface, COLORS['asphalt_worn'], (x, y), 1)
+        
+        # Rua vertical
+        cross_road_rect = pygame.Rect(cross_road_x, 0, 80, WINDOW_HEIGHT)
         pygame.draw.rect(surface, COLORS['asphalt'], cross_road_rect)
         
-        # FAIXAS INDIVIDUAIS bem marcadas
+        # Textura do asfalto vertical
+        for _ in range(150):
+            x = random.randint(cross_road_x, cross_road_x + 80)
+            y = random.randint(0, WINDOW_HEIGHT)
+            pygame.draw.circle(surface, COLORS['asphalt_worn'], (x, y), 1)
         
+        # === MARCAÇÕES VIÁRIAS PREMIUM ===
+        self._draw_premium_lane_markings(surface, cross_road_x, road_y)
+        
+        # === FAIXAS DE PEDESTRE DETALHADAS ===
+        self._draw_detailed_crosswalks(surface, cross_road_x, road_y)
+        
+        # === ELEMENTOS URBANOS ===
+        self._draw_urban_elements(surface, cross_road_x, road_y)
+        
+        # === FAIXAS INDIVIDUAIS ===
         # Rua principal - sentido esquerda→direita (2 faixas)
         for i in range(2):
-            lane_y = road_y + 10 + (i * 35)  # Relativo à nova posição
+            lane_y = road_y + 10 + (i * 35)
             self._draw_lane_marking_on_surface(surface, 0, lane_y, WINDOW_WIDTH, 'horizontal', cross_road_x, road_y)
         
         # Rua principal - sentido direita→esquerda (2 faixas)
         for i in range(2):
-            lane_y = road_y + 90 + (i * 35)  # Relativo à nova posição
+            lane_y = road_y + 90 + (i * 35)
             self._draw_lane_marking_on_surface(surface, 0, lane_y, WINDOW_WIDTH, 'horizontal', cross_road_x, road_y)
         
-        # Linha divisória central (amarela sólida) - parar antes da intersecção
-        # Antes da intersecção
-        pygame.draw.rect(surface, COLORS['yellow_line'], 
-                        (0, road_y + 75, cross_road_x - 50, 4))
-        # Depois da intersecção
-        pygame.draw.rect(surface, COLORS['yellow_line'], 
-                        (cross_road_x + 80 + 50, road_y + 75, WINDOW_WIDTH - (cross_road_x + 80 + 50), 4))
-        
         # Rua de mão única - 1 faixa centralizada
-        lane_x = cross_road_x + 20  # Centralizada na rua vertical
+        lane_x = cross_road_x + 20
         self._draw_lane_marking_on_surface(surface, lane_x, 0, WINDOW_HEIGHT, 'vertical', cross_road_x, road_y)
-        
-        # Faixas de pedestre na intersecção
-        self._draw_crosswalks_on_surface(surface, cross_road_x, road_y)
     
     def _draw_lane_marking_on_surface(self, surface, start_x, start_y, length, orientation, cross_road_x=None, road_y=None):
         """Desenhar marcação de faixa na superfície cached - CORRIGIDO para não sobrepor intersecção"""
@@ -151,6 +182,128 @@ class TrafficSim2D:
         for i in range(road_y + 5, road_y + 155, 8):
             pygame.draw.rect(surface, COLORS['white'], (cross_road_x - 15, i, 160, 4))
     
+    def _draw_premium_lane_markings(self, surface, cross_road_x, road_y):
+        """Marcações viárias com efeito 3D"""
+        
+        # Linha central com efeito de profundidade
+        central_y = road_y + 75
+        
+        # Sombra da linha
+        pygame.draw.rect(surface, (0, 0, 0, 40), 
+                        (0, central_y + 1, cross_road_x - 50, 5))
+        pygame.draw.rect(surface, (0, 0, 0, 40), 
+                        (cross_road_x + 130, central_y + 1, WINDOW_WIDTH - (cross_road_x + 130), 5))
+        
+        # Linha principal
+        pygame.draw.rect(surface, COLORS['yellow_line'], 
+                        (0, central_y, cross_road_x - 50, 4))
+        pygame.draw.rect(surface, COLORS['yellow_line'], 
+                        (cross_road_x + 130, central_y, WINDOW_WIDTH - (cross_road_x + 130), 4))
+        
+        # Brilho da linha
+        pygame.draw.rect(surface, (255, 255, 150), 
+                        (0, central_y, cross_road_x - 50, 1))
+        pygame.draw.rect(surface, (255, 255, 150), 
+                        (cross_road_x + 130, central_y, WINDOW_WIDTH - (cross_road_x + 130), 1))
+    
+    def _draw_detailed_crosswalks(self, surface, cross_road_x, road_y):
+        """Faixas de pedestre com efeito 3D"""
+        
+        # Faixa horizontal
+        for i in range(cross_road_x + 5, cross_road_x + 75, 12):
+            # Sombra
+            pygame.draw.rect(surface, (0, 0, 0, 60), 
+                            (i + 1, road_y - 14, 8, 169))
+            # Faixa principal
+            pygame.draw.rect(surface, COLORS['crosswalk'], 
+                            (i, road_y - 15, 8, 170))
+            # Brilho
+            pygame.draw.rect(surface, (255, 255, 255), 
+                            (i, road_y - 15, 8, 2))
+            
+        # Faixa vertical
+        for i in range(road_y + 5, road_y + 155, 12):
+            # Sombra
+            pygame.draw.rect(surface, (0, 0, 0, 60), 
+                            (cross_road_x - 14, i + 1, 109, 8))
+            # Faixa principal
+            pygame.draw.rect(surface, COLORS['crosswalk'], 
+                            (cross_road_x - 15, i, 110, 8))
+            # Brilho
+            pygame.draw.rect(surface, (255, 255, 255), 
+                            (cross_road_x - 15, i, 110, 2))
+    
+    def _draw_urban_elements(self, surface, cross_road_x, road_y):
+        """Elementos urbanos decorativos"""
+        
+        # === BUEIROS ===
+        manhole_positions = [
+            (cross_road_x - 150, road_y + 80),
+            (cross_road_x + 230, road_y + 80),
+            (cross_road_x + 40, road_y - 150),
+            (cross_road_x + 40, road_y + 310)
+        ]
+        
+        for pos in manhole_positions:
+            if not self._is_on_road(pos[0], pos[1]):  # Só fora das ruas
+                # Sombra do bueiro
+                pygame.draw.circle(surface, COLORS['shadow'][:3], 
+                                 (pos[0] + 2, pos[1] + 2), 17)
+                # Tampa do bueiro
+                pygame.draw.circle(surface, COLORS['manhole_cover'], pos, 15)
+                pygame.draw.circle(surface, COLORS['manhole_rim'], pos, 12)
+                pygame.draw.circle(surface, COLORS['manhole_dark'], pos, 8)
+                # Padrão da tampa
+                for angle in range(0, 360, 45):
+                    x = pos[0] + 6 * math.cos(math.radians(angle))
+                    y = pos[1] + 6 * math.sin(math.radians(angle))
+                    pygame.draw.circle(surface, COLORS['manhole_rim'], (int(x), int(y)), 2)
+        
+        # === ÁRVORES NAS CALÇADAS ===
+        tree_positions = [
+            (200, 200), (400, 200), (WINDOW_WIDTH - 200, 200),
+            (200, WINDOW_HEIGHT - 200), (400, WINDOW_HEIGHT - 200),
+            (WINDOW_WIDTH - 200, WINDOW_HEIGHT - 200),
+            (100, road_y - 120), (WINDOW_WIDTH - 100, road_y - 120),
+            (100, road_y + 280), (WINDOW_WIDTH - 100, road_y + 280)
+        ]
+        
+        for pos in tree_positions:
+            if not self._is_on_road(pos[0], pos[1]):
+                # Sombra da árvore
+                pygame.draw.ellipse(surface, COLORS['shadow'][:3], 
+                                  (pos[0] - 18, pos[1] + 15, 36, 25))
+                # Tronco
+                pygame.draw.rect(surface, COLORS['tree_trunk'], 
+                               (pos[0] - 4, pos[1] + 12, 8, 20))
+                # Copa da árvore (múltiplas camadas)
+                pygame.draw.circle(surface, COLORS['tree_leaves_dark'], pos, 20)
+                pygame.draw.circle(surface, COLORS['tree_leaves'], pos, 18)
+                pygame.draw.circle(surface, COLORS['tree_leaves_light'], pos, 15)
+                # Detalhes na copa
+                for _ in range(8):
+                    detail_x = pos[0] + random.randint(-12, 12)
+                    detail_y = pos[1] + random.randint(-12, 12)
+                    pygame.draw.circle(surface, COLORS['tree_leaves_dark'], 
+                                     (detail_x, detail_y), 2)
+    
+    def _is_on_road(self, x, y):
+        """Verificar se posição está na rua"""
+        center_x = WINDOW_WIDTH // 2
+        center_y = WINDOW_HEIGHT // 2
+        road_y = center_y - 80
+        cross_road_x = center_x - 40
+        
+        # Na rua horizontal
+        if road_y <= y <= road_y + 160:
+            return True
+        
+        # Na rua vertical
+        if cross_road_x <= x <= cross_road_x + 80:
+            return True
+        
+        return False
+    
     
     def update_simulation(self, dt):
         """Atualizar toda a simulação"""
@@ -179,6 +332,9 @@ class TrafficSim2D:
         
         # Atualizar eventos
         self.event_system.update(self.cars, self.traffic_lights)
+        
+        # === ATUALIZAR EFEITOS VISUAIS ===
+        self.update_animation_effects(dt)
     
     def draw_cars(self):
         """Desenhar carros otimizado por camadas (z-order)"""
@@ -201,6 +357,76 @@ class TrafficSim2D:
         horizontal_cars.sort(key=lambda c: c.y)
         
         return [vertical_cars, horizontal_cars]
+    
+    def update_animation_effects(self, dt):
+        """Atualizar efeitos visuais dinâmicos"""
+        self.animation_time += dt
+        
+        # === PARTÍCULAS DE POEIRA ===
+        # Adicionar novas partículas para carros rápidos
+        for car in self.cars:
+            if car.current_speed > 1.5 and random.random() < 0.3:  # 30% chance
+                particle = {
+                    'x': car.x + random.randint(-3, 3),
+                    'y': car.y + car.height + random.randint(0, 2),
+                    'life': 1.0,
+                    'decay': random.uniform(0.02, 0.04)
+                }
+                self.dust_particles.append(particle)
+        
+        # Atualizar partículas existentes
+        for particle in self.dust_particles[:]:
+            particle['life'] -= particle['decay']
+            particle['y'] += 0.5  # Deriva para baixo
+            particle['x'] += random.uniform(-0.2, 0.2)  # Deriva aleatória
+            
+            if particle['life'] <= 0:
+                self.dust_particles.remove(particle)
+        
+        # Limitar número de partículas para performance
+        if len(self.dust_particles) > 50:
+            self.dust_particles = self.dust_particles[-50:]
+    
+    def draw_dynamic_effects(self):
+        """Efeitos dinâmicos sobre a cena"""
+        
+        # === PARTÍCULAS DE POEIRA ===
+        for particle in self.dust_particles:
+            alpha = int(particle['life'] * 120)
+            if alpha > 0:
+                particle_color = (*COLORS['dust_particle'][:3], alpha)
+                particle_surface = pygame.Surface((3, 3), pygame.SRCALPHA)
+                particle_surface.fill(particle_color)
+                self.screen.blit(particle_surface, (int(particle['x']), int(particle['y'])))
+        
+        # === REFLEXOS DOS SEMÁFOROS (SIMULAÇÃO DE PISTA MOLHADA) ===
+        if hasattr(self, '_show_reflections') and self._show_reflections:
+            self._draw_light_reflections()
+        
+        # === ANIMAÇÃO SUTIL DOS SEMÁFOROS AMARELOS ===
+        if (self.traffic_lights.main_road_state == "yellow" or 
+            self.traffic_lights.cross_road_state == "yellow"):
+            # Efeito de piscar sutil já implementado nos semáforos
+            pass
+    
+    def _draw_light_reflections(self):
+        """Desenhar reflexos dos semáforos na pista (efeito de chuva)"""
+        from config import TRAFFIC_LIGHTS
+        
+        for light_id, light_config in TRAFFIC_LIGHTS.items():
+            state = light_config['state']
+            pos = light_config['pos']
+            
+            if state in ['red', 'yellow', 'green']:
+                # Reflexo na pista abaixo do semáforo
+                reflection_y = pos[1] + 80
+                reflection_color = (*COLORS[state][:3], 40)
+                
+                # Criar efeito de reflexo oval
+                reflection_surface = pygame.Surface((60, 30), pygame.SRCALPHA)
+                pygame.draw.ellipse(reflection_surface, reflection_color, 
+                                  (0, 0, 60, 30))
+                self.screen.blit(reflection_surface, (pos[0] - 30, reflection_y))
     
     def draw_ui(self):
         """Interface EXATA baseada no que desenvolvemos"""
@@ -433,6 +659,10 @@ class TrafficSim2D:
             self.draw_intersection()
             self.traffic_lights.draw(self.screen)
             self.draw_cars()
+            
+            # === EFEITOS DINÂMICOS ===
+            self.draw_dynamic_effects()
+            
             self.draw_ui()
             
             pygame.display.flip()
