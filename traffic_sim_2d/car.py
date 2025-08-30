@@ -8,7 +8,7 @@ from config import *
 class Direction(Enum):
     LEFT_TO_RIGHT = 0
     RIGHT_TO_LEFT = 1
-    BOTTOM_TO_TOP = 2
+    TOP_TO_BOTTOM = 2
 
 class DriverPersonality(Enum):
     AGGRESSIVE = "aggressive"
@@ -75,9 +75,9 @@ class Car:
             x = WINDOW_WIDTH + 30  # Fora da tela à direita
             # Faixas da parte inferior da rua
             y = road_y + 125 - (self.lane * 35)  # Terceira e quarta faixa
-        elif self.direction == Direction.BOTTOM_TO_TOP:
+        elif self.direction == Direction.TOP_TO_BOTTOM:
             x = cross_road_x + 20  # Centralizado na rua vertical
-            y = WINDOW_HEIGHT + 30  # Fora da tela EMBAIXO
+            y = -30  # Fora da tela DE CIMA
         
         return x, y
     
@@ -111,31 +111,32 @@ class Car:
         self._update_state()
     
     def check_obstacles(self, all_cars, traffic_lights):
-        """Algoritmo EXATO de detecção que desenvolvemos"""
+        """Algoritmo EXATO do HTML"""
         self.should_stop = False
         
-        # PRIORIDADE 1: Carros à frente (CRUCIAL)
+        # PRIORIDADE 1: Carros à frente
         car_ahead = self._get_car_ahead(all_cars)
         if car_ahead:
             distance = self._calculate_distance_to_car(car_ahead)
-            adaptive_distance = self._calculate_adaptive_following_distance(car_ahead)
+            min_distance = 35  # Distância pequena como no HTML
             
-            if distance <= adaptive_distance:
+            if distance <= min_distance:
                 self.should_stop = True
-                return  # Se há carro na frente, NÃO verificar semáforo
+                return  # EXATO: Se há carro na frente, NÃO verificar semáforo
         
-        # PRIORIDADE 2: Semáforos (SÓ se não há carro na frente)
+        # PRIORIDADE 2: Semáforos - LÓGICA EXATA DO HTML
         if not self.has_passed_intersection:
             distance_to_intersection = self._get_distance_to_intersection()
             should_stop_at_light = self._should_stop_at_traffic_light(traffic_lights)
             
-            # REGRA CRUCIAL: Só parar se conseguir parar ANTES da intersecção
-            if (should_stop_at_light and 
-                distance_to_intersection > CAR_CONFIG['minimum_stop_distance']):
+            # REGRA DO HTML: Só parar se conseguir parar ANTES da intersecção
+            minimum_stop_distance = 40  # HTML usa 8, mas 2D precisa ser maior
+            
+            if should_stop_at_light and distance_to_intersection > minimum_stop_distance:
                 self.should_stop = True
         
-        # Marcar se passou da intersecção
-        if self._has_passed_intersection():
+        # Marcar se passou (EXATO como HTML)
+        if self._has_passed_intersection() and not self.has_passed_intersection:
             self.has_passed_intersection = True
     
     def _get_car_ahead(self, all_cars):
@@ -168,8 +169,8 @@ class Car:
             return other_car.x > self.x
         elif self.direction == Direction.RIGHT_TO_LEFT:
             return other_car.x < self.x
-        elif self.direction == Direction.BOTTOM_TO_TOP:
-            return other_car.y < self.y  # À frente = Y menor (indo para cima)
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            return other_car.y > self.y  # À frente = Y maior (indo para baixo)
         
         return False
     
@@ -179,31 +180,42 @@ class Car:
             return abs(other_car.x - self.x)
         elif self.direction == Direction.RIGHT_TO_LEFT:
             return abs(self.x - other_car.x)
-        elif self.direction == Direction.BOTTOM_TO_TOP:
-            return abs(self.y - other_car.y)  # Distância para carro à frente (Y menor)
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            return abs(other_car.y - self.y)  # Distância para carro à frente (Y maior)
         
         return 0
     
     def _get_distance_to_intersection(self):
-        """Calcular distância até a intersecção"""
+        """Calcular distância baseada na posição real da intersecção"""
+        # Obter posição dinâmica da intersecção
+        center_x = WINDOW_WIDTH // 2
+        center_y = WINDOW_HEIGHT // 2
+        intersection_bounds = {
+            'left': center_x - 40,
+            'right': center_x + 40, 
+            'top': center_y - 80,
+            'bottom': center_y + 80
+        }
+        
         if self.direction == Direction.LEFT_TO_RIGHT:
-            return abs(520 - self.x)  # Centro da intersecção
+            return max(0, intersection_bounds['left'] - self.x)
         elif self.direction == Direction.RIGHT_TO_LEFT:
-            return abs(self.x - 680)  # Centro da intersecção
-        elif self.direction == Direction.BOTTOM_TO_TOP:
-            return abs(self.y - 420)  # Distância até centro da intersecção (indo para cima)
+            return max(0, self.x - intersection_bounds['right'])
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            return max(0, intersection_bounds['top'] - self.y)
         
         return 0
     
     def _should_stop_at_traffic_light(self, traffic_lights):
-        """Lógica avançada de parada no semáforo com IA comportamental"""
+        """Lógica EXATA do HTML"""
         relevant_light_state = self._get_relevant_light_state(traffic_lights)
         
         if relevant_light_state == "red":
             return True
         elif relevant_light_state == "yellow":
-            # Decisão mais realística no amarelo
-            return self._advanced_yellow_light_decision()
+            # LÓGICA EXATA DO HTML
+            distance_to_intersection = self._get_distance_to_intersection()
+            return distance_to_intersection > 50  # HTML usa 10, mas em 2D precisa ser maior
         
         return False
     
@@ -279,13 +291,16 @@ class Car:
             return traffic_lights.cross_road_state
     
     def _has_passed_intersection(self):
-        """Verificar se passou da intersecção"""
+        """Verificar dinamicamente se passou da intersecção"""
+        center_x = WINDOW_WIDTH // 2
+        center_y = WINDOW_HEIGHT // 2
+        
         if self.direction == Direction.LEFT_TO_RIGHT:
-            return self.x > 720
+            return self.x > center_x + 60  # Passou da intersecção
         elif self.direction == Direction.RIGHT_TO_LEFT:
-            return self.x < 480
-        elif self.direction == Direction.BOTTOM_TO_TOP:
-            return self.y < 300  # Passou da intersecção (indo para cima)
+            return self.x < center_x - 60
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            return self.y > center_y + 100  # Passou da intersecção
         
         return False
     
@@ -309,8 +324,8 @@ class Car:
             self.x += self.current_speed
         elif self.direction == Direction.RIGHT_TO_LEFT:
             self.x -= self.current_speed
-        elif self.direction == Direction.BOTTOM_TO_TOP:
-            self.y -= self.current_speed  # Move para CIMA (Y diminui)
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            self.y += self.current_speed  # Move para BAIXO (Y aumenta)
     
     def _update_state(self):
         """Atualizar estatísticas"""
@@ -323,8 +338,8 @@ class Car:
             return self.x > WINDOW_WIDTH + 50
         elif self.direction == Direction.RIGHT_TO_LEFT:
             return self.x < -50
-        elif self.direction == Direction.BOTTOM_TO_TOP:
-            return self.y < -50  # Saiu pela parte de cima da tela
+        elif self.direction == Direction.TOP_TO_BOTTOM:
+            return self.y > WINDOW_HEIGHT + 50  # Saiu pela parte de baixo da tela
         
         return False
     

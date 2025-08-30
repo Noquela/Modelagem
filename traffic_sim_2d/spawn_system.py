@@ -19,7 +19,7 @@ class SpawnSystem:
         self.last_spawn_time = {
             Direction.LEFT_TO_RIGHT: 0,
             Direction.RIGHT_TO_LEFT: 0,
-            Direction.BOTTOM_TO_TOP: 0
+            Direction.TOP_TO_BOTTOM: 0
         }
     
     def update(self, cars):
@@ -48,14 +48,14 @@ class SpawnSystem:
                 self.cars_spawned += 1
                 self.last_spawn_time[Direction.RIGHT_TO_LEFT] = current_time
         
-        # Spawn rua que corta (baixo→cima) - 80% da chance das outras
-        if self._should_spawn(Direction.BOTTOM_TO_TOP, current_time, 
+        # Spawn rua que corta (cima→baixo) - 80% da chance das outras
+        if self._should_spawn(Direction.TOP_TO_BOTTOM, current_time, 
                              random_factor * self.cross_road_multiplier):
-            if self._can_spawn_safely(Direction.BOTTOM_TO_TOP, 0, cars):
-                new_car = Car(Direction.BOTTOM_TO_TOP, 0)
+            if self._can_spawn_safely(Direction.TOP_TO_BOTTOM, 0, cars):
+                new_car = Car(Direction.TOP_TO_BOTTOM, 0)
                 new_cars.append(new_car)
                 self.cars_spawned += 1
-                self.last_spawn_time[Direction.BOTTOM_TO_TOP] = current_time
+                self.last_spawn_time[Direction.TOP_TO_BOTTOM] = current_time
         
         self.spawn_attempts += 1
         return new_cars
@@ -72,7 +72,7 @@ class SpawnSystem:
     
     def _choose_best_lane(self, direction, cars):
         """Escolher faixa menos congestionada (NOSSA LÓGICA)"""
-        max_lanes = 2 if direction != Direction.BOTTOM_TO_TOP else 1
+        max_lanes = 2 if direction != Direction.TOP_TO_BOTTOM else 1
         
         # Encontrar faixa com mais espaço
         best_lane = -1
@@ -128,9 +128,9 @@ class SpawnSystem:
         elif car.direction == Direction.RIGHT_TO_LEFT:
             # Spawn à direita (WINDOW_WIDTH + 30), distância até o carro
             return (WINDOW_WIDTH + 30) - car.x
-        elif car.direction == Direction.BOTTOM_TO_TOP:
-            # Spawn embaixo (WINDOW_HEIGHT + 30), distância até o carro
-            return (WINDOW_HEIGHT + 30) - car.y
+        elif car.direction == Direction.TOP_TO_BOTTOM:
+            # Spawn em cima (-30), distância até o carro
+            return car.y - (-30)
         
         return 0
     

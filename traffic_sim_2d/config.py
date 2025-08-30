@@ -24,9 +24,9 @@ TRAFFIC_LIGHTS = {
         'state': 'red'
     },
     'semaforo_3': {
-        'pos': (1680, 600),  # Controla baixo→cima (centralizado)
+        'pos': (1680, 600),  # Controla cima→baixo (centralizado)
         'direction': 'vertical_up',
-        'controls': 'BOTTOM_TO_TOP',
+        'controls': 'TOP_TO_BOTTOM',
         'state': 'red'
     }
 }
@@ -52,15 +52,16 @@ COLORS = {
     'pole': (80, 80, 80)
 }
 
-# Configurações dos carros - VALORES EXATOS
+# Configurações dos carros - VALORES AJUSTADOS PARA 2D COMO HTML
 CAR_CONFIG = {
     'width': 25,
     'height': 15,
     'max_speed': 2.0,
     'acceleration': 0.05,
     'deceleration': 0.08,
-    'min_following_distance': 120,
-    'minimum_stop_distance': 200
+    'min_following_distance': 35,   # REDUZIDO de 120 para 35 (como HTML)
+    'minimum_stop_distance': 50,    # REDUZIDO de 200 para 50 (como HTML)
+    'queue_distance': 25            # Nova: distância em fila
 }
 
 # Personalidades dos motoristas - EXATO COMO DESENVOLVEMOS
@@ -91,12 +92,12 @@ DRIVER_PERSONALITIES = {
     }
 }
 
-# Sistema de spawn - CONFIGURAÇÕES EXATAS
+# Sistema de spawn - CONFIGURAÇÕES AJUSTADAS PARA 2D COMO HTML
 SPAWN_CONFIG = {
-    'base_spawn_rate': 0.025,
+    'base_spawn_rate': 0.03,       # AUMENTADO de 0.025 para 0.03
     'randomness_factor': 0.5,
-    'min_spawn_distance': 120,
-    'cross_road_multiplier': 0.8  # Rua que corta tem 80% da chance
+    'min_spawn_distance': 30,      # REDUZIDO de 120 para 30 (como HTML)
+    'cross_road_multiplier': 0.8   # Rua que corta tem 80% da chance
 }
 
 # Tempos dos semáforos - SISTEMA EXATO DE 37 SEGUNDOS

@@ -83,25 +83,17 @@ class AdvancedSpawnSystem(SpawnSystem):
         return advanced_stats
     
     def _can_spawn_safely(self, direction, lane, cars):
-        """Sistema de fila realística - spawn mesmo no vermelho"""
+        """Sistema EXATO do HTML - sempre permitir spawn para formar filas"""
+        
+        # PRIMEIRA VERIFICAÇÃO: Espaço básico
         distance_to_nearest = self._get_distance_to_nearest_car(direction, lane, cars)
         
-        # NOVA LÓGICA: Permitir spawn mais próximo para formar filas realísticas
-        min_safe_distance = 40  # Distância menor para permitir filas
-        
-        # Se há espaço físico mínimo, sempre spawnar (mesmo no vermelho)
-        if distance_to_nearest >= min_safe_distance:
+        # LÓGICA DO HTML: Se tem espaço mínimo, sempre spawnar
+        if distance_to_nearest >= 30:  # Distância mínima pequena
             return True
         
-        # Se a fila está muito longa, parar de spawnar temporariamente
-        cars_in_lane = [car for car in cars 
-                       if car.direction == direction and car.lane == lane]
-        
-        # Limitar fila a 15 carros por faixa para evitar travamento total
-        if len(cars_in_lane) >= 15:
-            return False
-            
-        return distance_to_nearest >= min_safe_distance
+        # LÓGICA DE FILA: Permitir spawn atrás da fila (como no HTML)
+        return self._has_space_for_queueing(direction, lane, cars)
     
     def _should_spawn(self, direction, current_time, rate_factor):
         """Lógica melhorada que considera semáforos para formar filas"""
@@ -119,3 +111,59 @@ class AdvancedSpawnSystem(SpawnSystem):
         spawn_chance = base_chance * queue_formation_bonus
         
         return random.random() < spawn_chance
+    
+    def _has_space_for_queueing(self, direction, lane, cars):
+        """Lógica EXATA do HTML"""
+        spawn_pos = self._get_spawn_position(direction, lane)
+        cars_in_lane = [car for car in cars if car.direction == direction and car.lane == lane]
+        
+        if not cars_in_lane:
+            return True
+        
+        # Encontrar último carro da fila (EXATO como HTML)
+        closest_distance_to_spawn = float('inf')
+        last_car_in_queue = None
+        
+        for car in cars_in_lane:
+            distance_to_spawn = self._calculate_directional_distance_to_spawn(car, direction)
+            if distance_to_spawn >= 0 and distance_to_spawn < closest_distance_to_spawn:
+                closest_distance_to_spawn = distance_to_spawn
+                last_car_in_queue = car
+        
+        # REGRA DO HTML: Se há espaço de pelo menos 30 unidades, spawnar
+        return not last_car_in_queue or closest_distance_to_spawn >= 30
+
+    def _calculate_directional_distance_to_spawn(self, car, direction):
+        """Cálculo EXATO do HTML"""
+        spawn_pos = self._get_spawn_position(direction, 0)
+        
+        if direction == Direction.LEFT_TO_RIGHT:
+            return car.x - spawn_pos[0]  # positivo se carro está à frente
+        elif direction == Direction.RIGHT_TO_LEFT:
+            return spawn_pos[0] - car.x  # positivo se carro está à frente
+        elif direction == Direction.TOP_TO_BOTTOM:
+            return car.y - spawn_pos[1]  # positivo se carro está à frente
+        
+        return 0
+    
+    def _get_spawn_position(self, direction, lane):
+        """Obter posição de spawn para uma direção e faixa"""
+        from config import WINDOW_WIDTH, WINDOW_HEIGHT
+        
+        # Calcular posições baseadas na intersecção centralizada
+        center_y = WINDOW_HEIGHT // 2  # 720
+        road_y = center_y - 80  # Posição da rua principal
+        center_x = WINDOW_WIDTH // 2  # 1720
+        cross_road_x = center_x - 40  # Posição da rua vertical
+        
+        if direction == Direction.LEFT_TO_RIGHT:
+            x = -30  # Fora da tela à esquerda
+            y = road_y + 10 + (lane * 35)  # Primeira e segunda faixa
+        elif direction == Direction.RIGHT_TO_LEFT:
+            x = WINDOW_WIDTH + 30  # Fora da tela à direita
+            y = road_y + 125 - (lane * 35)  # Terceira e quarta faixa
+        elif direction == Direction.TOP_TO_BOTTOM:
+            x = cross_road_x + 20  # Centralizado na rua vertical
+            y = -30  # Fora da tela DE CIMA
+        
+        return (x, y)

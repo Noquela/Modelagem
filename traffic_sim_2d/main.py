@@ -194,7 +194,7 @@ class TrafficSim2D:
         # Carros indo para baixo (rua vertical) ficam atrás
         # Carros da rua horizontal ficam na frente
         
-        vertical_cars = [car for car in self.cars if car.direction.name == 'BOTTOM_TO_TOP']
+        vertical_cars = [car for car in self.cars if car.direction.name == 'TOP_TO_BOTTOM']
         horizontal_cars = [car for car in self.cars if car.direction.name in ['LEFT_TO_RIGHT', 'RIGHT_TO_LEFT']]
         
         # Ordenar horizontal cars por Y para sobreposição correta
@@ -357,8 +357,8 @@ class TrafficSim2D:
                                 if car.direction.name == 'LEFT_TO_RIGHT' and car.current_speed < 0.1]),
             'RIGHT_TO_LEFT': len([car for car in self.cars 
                                 if car.direction.name == 'RIGHT_TO_LEFT' and car.current_speed < 0.1]),
-            'BOTTOM_TO_TOP': len([car for car in self.cars 
-                                if car.direction.name == 'BOTTOM_TO_TOP' and car.current_speed < 0.1])
+            'TOP_TO_BOTTOM': len([car for car in self.cars 
+                                if car.direction.name == 'TOP_TO_BOTTOM' and car.current_speed < 0.1])
         }
         
         text = self.small_font.render(f"Fila Esq→Dir: {stopped_cars['LEFT_TO_RIGHT']}", True, COLORS['yellow'])
@@ -369,7 +369,7 @@ class TrafficSim2D:
         self.screen.blit(text, (20, y))
         y += 15
         
-        text = self.small_font.render(f"Fila Vertical: {stopped_cars['BOTTOM_TO_TOP']}", True, COLORS['yellow'])
+        text = self.small_font.render(f"Fila Vertical: {stopped_cars['TOP_TO_BOTTOM']}", True, COLORS['yellow'])
         self.screen.blit(text, (20, y))
         y += 20
         
