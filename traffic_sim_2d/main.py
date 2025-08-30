@@ -86,6 +86,21 @@ class TrafficSim2D:
             pygame.draw.rect(self.screen, COLORS['white'], (x, lane3_y + 15, 20, 2))
         for x in range(cross_road_x + CROSS_ROAD_WIDTH + 50, WINDOW_WIDTH, 30):
             pygame.draw.rect(self.screen, COLORS['white'], (x, lane3_y + 15, 20, 2))
+        
+        # === FAIXAS DE PEDESTRE ===
+        # Faixas horizontais (cruzando a rua vertical)
+        for i in range(cross_road_x, cross_road_x + CROSS_ROAD_WIDTH, 8):
+            # Faixa antes da intersecção
+            pygame.draw.rect(self.screen, COLORS['white'], (i, main_road_y - 15, 4, 10))
+            # Faixa depois da intersecção
+            pygame.draw.rect(self.screen, COLORS['white'], (i, main_road_y + MAIN_ROAD_WIDTH + 5, 4, 10))
+        
+        # Faixas verticais (cruzando a rua principal)
+        for i in range(main_road_y, main_road_y + MAIN_ROAD_WIDTH, 8):
+            # Faixa à esquerda da intersecção
+            pygame.draw.rect(self.screen, COLORS['white'], (cross_road_x - 15, i, 10, 4))
+            # Faixa à direita da intersecção
+            pygame.draw.rect(self.screen, COLORS['white'], (cross_road_x + CROSS_ROAD_WIDTH + 5, i, 10, 4))
     
     def update_simulation(self, dt):
         """Atualizar toda a simulação"""
@@ -200,6 +215,25 @@ class TrafficSim2D:
             text = self.small_font.render(f"{personality.title()}: {count}", True, color)
             self.screen.blit(text, (20, y))
             y += 18
+        
+        # === THROUGHPUT STATISTICS ===
+        y += 10
+        text = self.font.render("=== THROUGHPUT ===", True, COLORS['white'])
+        self.screen.blit(text, (20, y))
+        y += 25
+        
+        if elapsed > 0:
+            throughput = self.total_cars_despawned / elapsed * 60  # carros por minuto
+            text = self.small_font.render(f"Throughput: {throughput:.1f} carros/min", True, COLORS['white'])
+            self.screen.blit(text, (20, y))
+            y += 20
+            
+            # Taxa de ocupação da intersecção
+            cars_in_intersection = len([car for car in self.cars 
+                                       if 520 <= car.x <= 680 and 340 <= car.y <= 460])
+            text = self.small_font.render(f"Na Intersecção: {cars_in_intersection}", True, COLORS['white'])
+            self.screen.blit(text, (20, y))
+            y += 20
         
         # Estado de pausa
         if self.paused:
