@@ -60,6 +60,7 @@ var distance_to_car_ahead: float = 999.0
 var has_passed_intersection: bool = false
 var reaction_time: float = 1.0
 var following_distance: float = 4.0
+var following_distance_factor: float = 1.0
 
 # Referencias ao sistema
 var traffic_manager: Node
@@ -96,7 +97,8 @@ func setup_personality():
 	
 	max_speed = p.base_speed * randf_range(0.85, 1.15)  # ±15% variação
 	reaction_time = randf_range(p.reaction_time[0], p.reaction_time[1])
-	following_distance = 4.0 * p.following_distance_factor
+	following_distance_factor = p.following_distance_factor
+	following_distance = 4.0 * following_distance_factor
 
 func setup_physics():
 	# Configuração leve para 100+ carros - CharacterBody3D é otimizado
@@ -126,7 +128,7 @@ func create_car_geometry():
 	add_child(collision)
 
 func set_spawn_position():
-	# CONVERSÃO 2D→3D CORRETA - Y do HTML vira Z no Godot
+	# CONVERSÃO 2D→3D EXATA DO HTML - Y vira Z no Godot
 	match direction:
 		Direction.LEFT_TO_RIGHT:
 			global_position = Vector3(-50, 0.5, -3 + lane * 3)  # Oeste para Leste
@@ -137,12 +139,12 @@ func set_spawn_position():
 			rotation.y = PI
 			
 		Direction.TOP_TO_BOTTOM:
-			global_position = Vector3(-1.5 + lane * 3, 0.5, -50)  # Norte para Sul
+			global_position = Vector3(0, 0.5, -50)  # Norte para Sul - MÃO ÚNICA (centralizado)
 			rotation.y = PI/2
 			
 		Direction.BOTTOM_TO_TOP:
-			global_position = Vector3(1.5 - lane * 3, 0.5, 50)   # Sul para Norte  
-			rotation.y = -PI/2
+			# REMOVIDO - não existe mais no layout do HTML
+			print("ERROR: BOTTOM_TO_TOP não deveria existir!")
 
 func _physics_process(delta):
 	# Otimização - nem todo carro precisa atualizar todo frame
@@ -157,24 +159,45 @@ func _physics_process(delta):
 	check_cleanup()
 
 func check_obstacles():
-	# PRIORIDADE 1: Carros à frente (ANTI-ENGAVETAMENTO DO HTML)
+	# LÓGICA EXATA DO HTML COM 3 ZONAS DE PERIGO
 	should_stop = false
-	car_ahead = get_car_ahead()
 	
+	# PRIORIDADE 1: Carros à frente (SISTEMA ANTI-ENGAVETAMENTO AVANÇADO)
+	var car_ahead = get_car_ahead()
 	if car_ahead:
-		distance_to_car_ahead = global_position.distance_to(car_ahead.global_position)
+		var distance = global_position.distance_to(car_ahead.global_position)
+		var safe_distance = calculate_safe_following_distance(car_ahead)
 		
-		# LÓGICA EXATA DO HTML - seguir o carro da frente
-		if distance_to_car_ahead < following_distance * 1.5:
+		# 3 ZONAS DE PERIGO DO HTML:
+		var critical_distance = safe_distance * 0.4   # Zona crítica
+		var alert_distance = safe_distance * 0.75     # Zona de alerta
+		var relative_speed = current_speed - car_ahead.current_speed
+		
+		if distance < critical_distance:
+			should_stop = true  # PERIGO IMINENTE
+			target_speed = 0.0
+		elif distance < alert_distance and relative_speed > 1.0:
+			should_stop = true  # APROXIMAÇÃO PERIGOSA
+			target_speed = car_ahead.current_speed * 0.8
+		elif relative_speed > 2.0:
+			should_stop = true  # VELOCIDADE RELATIVA PERIGOSA
+			target_speed = car_ahead.current_speed * 0.9
+		else:
+			target_speed = min(max_speed, car_ahead.current_speed * 1.1)
+		
+		return  # Se há carro na frente, não verificar semáforo
+	
+	# PRIORIDADE 2: Semáforos (REGRA: não parar no meio da intersecção)
+	if not has_passed_intersection:
+		var distance_to_intersection = get_distance_to_intersection()
+		var should_stop_at_light = should_stop_at_traffic_light()
+		var minimum_stop_distance = 8.0  # CONSTANTE DO HTML
+		
+		if should_stop_at_light and distance_to_intersection > minimum_stop_distance:
 			should_stop = true
-			target_speed = min(max_speed, car_ahead.current_speed * 0.9)
+			target_speed = 0.0
 		else:
 			target_speed = max_speed
-		return
-	
-	# PRIORIDADE 2: Semáforos (se não passou da intersecção)
-	if not has_passed_intersection:
-		check_traffic_lights()
 	else:
 		target_speed = max_speed
 
@@ -212,41 +235,52 @@ func get_car_ahead():
 	
 	return closest_car
 
-func check_traffic_lights():
-	# LÓGICA DOS SEMÁFOROS - baseada no HTML
-	if not traffic_manager:
-		return
-		
-	var distance_to_intersection = get_distance_to_intersection()
-	if distance_to_intersection > 15.0:  # Muito longe, ignorar
-		target_speed = max_speed
-		return
+func calculate_safe_following_distance(car_ahead) -> float:
+	# LÓGICA EXATA DO HTML - distâncias adaptativas por personalidade
+	var base_distance = 5.6      # era 28 pixels no HTML
+	var queue_distance = 3.6     # era 18 pixels no HTML  
+	var max_limit = 13.0         # era 65 pixels no HTML
 	
+	var my_speed = current_speed
+	var ahead_speed = car_ahead.current_speed
+	
+	# LÓGICA DE FILA - distância menor quando parados (INOVAÇÃO DO HTML)
+	if my_speed < 0.75 and ahead_speed < 0.75:
+		return queue_distance  # Filas compactas
+	
+	# CÁLCULOS DINÂMICOS baseados no HTML
+	var speed_factor = (my_speed / max_speed) * 2.4
+	var personality_factor = following_distance_factor * 1.6
+	
+	var dynamic_distance = base_distance + speed_factor + personality_factor
+	return clamp(dynamic_distance, queue_distance, max_limit)
+
+func should_stop_at_traffic_light() -> bool:
+	# FUNÇÃO AUXILIAR para lógica de semáforos
+	if not traffic_manager:
+		return false
+		
 	var my_direction_name = get_direction_name()
 	var light_state = traffic_manager.get_light_state_for_direction(my_direction_name)
 	
 	match light_state:
 		"green":
-			target_speed = max_speed
-			should_stop = false
-			
+			return false
 		"red":
-			if distance_to_intersection < 8.0:  # Próximo da intersecção
-				should_stop = true
-				target_speed = 0.0
-			else:
-				target_speed = max_speed * 0.5  # Diminuir velocidade
-				
+			return true
 		"yellow":
 			# LÓGICA DO AMARELO - EXATA DO HTML
+			var distance_to_intersection = get_distance_to_intersection()
 			var can_proceed = traffic_manager.can_proceed_on_yellow(my_direction_name, distance_to_intersection, current_speed)
 			var personality_factor = PERSONALITIES[personality].yellow_light_probability
 			
 			if can_proceed and randf() < personality_factor:
-				target_speed = max_speed  # Acelerar para passar
+				return false  # Acelerar para passar
 			else:
-				should_stop = true
-				target_speed = 0.0
+				return true   # Parar com segurança
+	
+	return true
+
 
 func get_distance_to_intersection() -> float:
 	# CONVERSÃO 2D→3D - calcular distância até intersecção
@@ -258,20 +292,20 @@ func get_distance_to_intersection() -> float:
 		Direction.TOP_TO_BOTTOM:
 			return max(0.0, -global_position.z)
 		Direction.BOTTOM_TO_TOP:
-			return max(0.0, global_position.z)
+			return 999.0  # REMOVIDO - não deveria existir
 	return 0.0
 
 func get_direction_name() -> String:
-	# Mapear direção para nome do semáforo
+	# Mapear direção para nome do semáforo - LÓGICA DO HTML
 	match direction:
 		Direction.LEFT_TO_RIGHT:
 			return "West"
 		Direction.RIGHT_TO_LEFT:
 			return "East"
 		Direction.TOP_TO_BOTTOM:
-			return "North"
+			return "North"  # MÃO ÚNICA
 		Direction.BOTTOM_TO_TOP:
-			return "South"
+			return "ERROR"  # REMOVIDO - não deveria existir
 	return "North"
 
 func update_movement(delta):
@@ -326,7 +360,7 @@ func check_intersection_passage():
 		Direction.TOP_TO_BOTTOM:
 			passed = global_position.z > 8.0
 		Direction.BOTTOM_TO_TOP:
-			passed = global_position.z < -8.0
+			passed = true  # FORÇAR PASSAGEM - não deveria existir
 	
 	if passed and not has_passed_intersection:
 		has_passed_intersection = true
@@ -343,7 +377,7 @@ func check_cleanup():
 		Direction.TOP_TO_BOTTOM:
 			should_cleanup = global_position.z > 60.0
 		Direction.BOTTOM_TO_TOP:
-			should_cleanup = global_position.z < -60.0
+			should_cleanup = true  # FORÇAR CLEANUP - não deveria existir
 	
 	if should_cleanup:
 		destroy()

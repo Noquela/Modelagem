@@ -28,13 +28,24 @@ func setup_environment():
 	setup_lighting()
 
 func create_intersection():
-	# Main road (North-South)
-	var road_ns = create_road_segment(Vector3.ZERO, Vector3(0, 0, 20), 6.0)
-	add_child(road_ns)
+	# LAYOUT EXATO DO HTML:
+	# Rua PRINCIPAL (horizontal/East-West) - LARGA (2 mãos, 4 faixas)
+	var road_main = create_road_segment(
+		Vector3(-50, 0, 0), 
+		Vector3(50, 0, 0), 
+		8.0  # 8 metros de largura (4 faixas: 2 para cada direção)
+	)
+	road_main.name = "MainRoad_EastWest"
+	add_child(road_main)
 	
-	# Cross road (East-West)  
-	var road_ew = create_road_segment(Vector3.ZERO, Vector3(20, 0, 0), 6.0)
-	add_child(road_ew)
+	# Rua TRANSVERSAL (vertical/North-South) - ESTREITA (mão única)
+	var road_cross = create_road_segment(
+		Vector3(0, 0, -50),
+		Vector3(0, 0, 50), 
+		4.0  # 4 metros de largura (apenas TOP_TO_BOTTOM)
+	)
+	road_cross.name = "CrossRoad_NorthSouth"
+	add_child(road_cross)
 	
 	# Lane markings
 	create_lane_markings()
@@ -87,14 +98,16 @@ func setup_lighting():
 	add_child(world_env)
 
 func setup_traffic_lights():
-	# North light
-	create_traffic_light(Vector3(0, 0, 8), 0, "North")
-	# South light  
-	create_traffic_light(Vector3(0, 0, -8), 180, "South")
-	# East light
-	create_traffic_light(Vector3(8, 0, 0), 90, "East")
-	# West light
-	create_traffic_light(Vector3(-8, 0, 0), -90, "West")
+	# APENAS 3 SEMÁFOROS como no HTML original:
+	
+	# Semáforo 1: Controla LEFT_TO_RIGHT (West → East)
+	create_traffic_light(Vector3(-6, 0, 6), 90, "main_road_west")
+	
+	# Semáforo 2: Controla RIGHT_TO_LEFT (East → West)  
+	create_traffic_light(Vector3(6, 0, -6), -90, "main_road_east")
+	
+	# Semáforo 3: Controla TOP_TO_BOTTOM (North → South, mão única)
+	create_traffic_light(Vector3(-6, 0, -6), 0, "cross_road_north")
 
 func create_traffic_light(pos: Vector3, rotation_y: float, direction: String) -> Node3D:
 	var light_scene = preload("res://scenes/TrafficLight.tscn")

@@ -34,56 +34,42 @@ func _process(delta):
 	cleanup_invalid_cars()
 
 func setup_spawn_points():
-	# SPAWN POINTS EXATOS - baseados na conversão 2D→3D
+	# SPAWN POINTS EXATOS DO HTML - APENAS 5 pontos (mão única na transversal)
 	spawn_points = [
+		# LEFT_TO_RIGHT (West → East) - 2 faixas
 		{
-			"direction": 0,  # LEFT_TO_RIGHT - West → East
+			"direction": 0,  
 			"lane": 0,
 			"position": Vector3(-50, 0.5, -3),
 			"name": "West_Lane0"
 		},
 		{
-			"direction": 0,  # LEFT_TO_RIGHT - West → East
+			"direction": 0,
 			"lane": 1, 
 			"position": Vector3(-50, 0.5, 0),
 			"name": "West_Lane1"
 		},
+		# RIGHT_TO_LEFT (East → West) - 2 faixas
 		{
-			"direction": 1,  # RIGHT_TO_LEFT - East → West
+			"direction": 1,
 			"lane": 0,
 			"position": Vector3(50, 0.5, 3),
 			"name": "East_Lane0"
 		},
 		{
-			"direction": 1,  # RIGHT_TO_LEFT - East → West
+			"direction": 1,
 			"lane": 1,
 			"position": Vector3(50, 0.5, 0), 
 			"name": "East_Lane1"
 		},
+		# TOP_TO_BOTTOM (North → South) - MÃO ÚNICA - APENAS 1 faixa
 		{
-			"direction": 2,  # TOP_TO_BOTTOM - North → South
+			"direction": 2,
 			"lane": 0,
-			"position": Vector3(-1.5, 0.5, -50),
-			"name": "North_Lane0"
-		},
-		{
-			"direction": 2,  # TOP_TO_BOTTOM - North → South  
-			"lane": 1,
-			"position": Vector3(1.5, 0.5, -50),
-			"name": "North_Lane1"
-		},
-		{
-			"direction": 3,  # BOTTOM_TO_TOP - South → North
-			"lane": 0, 
-			"position": Vector3(1.5, 0.5, 50),
-			"name": "South_Lane0"
-		},
-		{
-			"direction": 3,  # BOTTOM_TO_TOP - South → North
-			"lane": 1,
-			"position": Vector3(-1.5, 0.5, 50), 
-			"name": "South_Lane1"
+			"position": Vector3(0, 0.5, -50),  # Centralizado
+			"name": "North_Lane0_ONLY"
 		}
+		# BOTTOM_TO_TOP REMOVIDO - mão única!
 	]
 
 func update_rush_hour_effect():
@@ -147,15 +133,39 @@ func can_spawn_safely(spawn_point: Dictionary) -> bool:
 
 func has_space_for_queueing(spawn_point: Dictionary) -> bool:
 	# FUNÇÃO CRÍTICA DO HTML - permite spawn mesmo no vermelho se há espaço para fila
-	var direction = spawn_point.direction
-	var lane = spawn_point.lane
-	var cars_in_lane = get_cars_in_same_lane(direction, lane)
+	var cars_in_lane = get_cars_in_same_lane(spawn_point.direction, spawn_point.lane)
 	
-	# Se há menos carros que o máximo da fila, pode spawnar
-	if cars_in_lane.size() < SPAWN_CONFIG.max_queue_length:
+	if cars_in_lane.is_empty():
 		return true
 	
-	return false
+	# LÓGICA AVANÇADA DO HTML - encontrar último carro da fila
+	var closest_distance_to_spawn = INF
+	
+	for car in cars_in_lane:
+		var distance_to_spawn = calculate_directional_distance_to_spawn(car, spawn_point)
+		if distance_to_spawn >= 0 and distance_to_spawn < closest_distance_to_spawn:
+			closest_distance_to_spawn = distance_to_spawn
+	
+	# REGRA DO HTML: se há espaço de pelo menos 4 metros, spawnar
+	return closest_distance_to_spawn >= 4.0
+
+func calculate_directional_distance_to_spawn(car, spawn_point: Dictionary) -> float:
+	# FUNÇÃO EXATA DO HTML - conversão 2D→3D correta
+	var car_pos = car.global_position  
+	var spawn_pos = spawn_point.position
+	var direction = spawn_point.direction
+	
+	match direction:
+		0:  # LEFT_TO_RIGHT - West → East
+			return spawn_pos.x - car_pos.x  # Positivo = carro antes do spawn
+		1:  # RIGHT_TO_LEFT - East → West  
+			return car_pos.x - spawn_pos.x  # Positivo = carro antes do spawn
+		2:  # TOP_TO_BOTTOM - North → South (mão única)
+			return spawn_pos.z - car_pos.z  # Positivo = carro antes do spawn
+		3:  # BOTTOM_TO_TOP - REMOVIDO
+			return -999.0  # Forçar falha
+	
+	return 0.0
 
 func get_cars_in_same_lane(direction, lane: int) -> Array:
 	# OTIMIZAÇÃO - buscar apenas carros na mesma direção e lane
@@ -179,10 +189,10 @@ func get_directional_distance_to_spawn(car, spawn_pos: Vector3, direction) -> fl
 			return spawn_pos.x - car_pos.x  # Positivo = carro antes do spawn
 		1:  # RIGHT_TO_LEFT - East → West  
 			return car_pos.x - spawn_pos.x  # Positivo = carro antes do spawn
-		2:  # TOP_TO_BOTTOM - North → South
+		2:  # TOP_TO_BOTTOM - North → South (mão única)
 			return spawn_pos.z - car_pos.z  # Positivo = carro antes do spawn
-		3:  # BOTTOM_TO_TOP - South → North
-			return car_pos.z - spawn_pos.z  # Positivo = carro antes do spawn
+		3:  # BOTTOM_TO_TOP - REMOVIDO
+			return -999.0  # Forçar falha
 	
 	return 0.0
 
