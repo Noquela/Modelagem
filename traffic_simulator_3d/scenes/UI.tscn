@@ -1,0 +1,183 @@
+[gd_scene load_steps=3 format=3 uid="uid://bfghxyz123456"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0.1, 0.1, 0.1, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
+bg_color = Color(0.2, 0.4, 0.8, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="UI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TopPanel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_bottom = 80.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+
+[node name="Title" type="Label" parent="TopPanel"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 20.0
+offset_top = -15.0
+offset_right = 400.0
+offset_bottom = 15.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "Traffic Intersection Simulator"
+
+[node name="SimulationTime" type="Label" parent="TopPanel"]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -15.0
+offset_right = -20.0
+offset_bottom = 15.0
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 18
+text = "Time: 00:00"
+horizontal_alignment = 2
+
+[node name="StatsPanel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -300.0
+offset_top = 90.0
+offset_right = -10.0
+offset_bottom = 400.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+
+[node name="StatsTitle" type="Label" parent="StatsPanel"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 0.0
+anchor_right = 1.0
+offset_left = 15.0
+offset_top = 10.0
+offset_right = -15.0
+offset_bottom = 35.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "📊 Simulation Metrics"
+
+[node name="CarsLabel" type="Label" parent="StatsPanel"]
+layout_mode = 1
+anchor_top = 0.0
+anchor_right = 1.0
+offset_left = 15.0
+offset_top = 50.0
+offset_right = -15.0
+offset_bottom = 75.0
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+text = "🚗 Active Cars: 0"
+
+[node name="ThroughputLabel" type="Label" parent="StatsPanel"]
+layout_mode = 1
+anchor_top = 0.0
+anchor_right = 1.0
+offset_left = 15.0
+offset_top = 80.0
+offset_right = -15.0
+offset_bottom = 105.0
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+text = "📈 Throughput: 0.0/s"
+
+[node name="FPSLabel" type="Label" parent="StatsPanel"]
+layout_mode = 1
+anchor_top = 0.0
+anchor_right = 1.0
+offset_left = 15.0
+offset_top = 110.0
+offset_right = -15.0
+offset_bottom = 135.0
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+text = "⚡ FPS: 60"
+
+[node name="TrafficLightStatus" type="VBoxContainer" parent="StatsPanel"]
+layout_mode = 1
+anchor_top = 0.0
+anchor_right = 1.0
+offset_left = 15.0
+offset_top = 150.0
+offset_right = -15.0
+offset_bottom = 250.0
+
+[node name="MainRoadLabel" type="Label" parent="StatsPanel/TrafficLightStatus"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+text = "🚦 Main Road: GREEN"
+
+[node name="CrossRoadLabel" type="Label" parent="StatsPanel/TrafficLightStatus"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+text = "🚦 Cross Road: RED"
+
+[node name="ControlPanel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -80.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+
+[node name="PlayButton" type="Button" parent="ControlPanel"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 20.0
+offset_top = -20.0
+offset_right = 80.0
+offset_bottom = 20.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_2")
+text = "⏸️"
+
+[node name="SpeedLabel" type="Label" parent="ControlPanel"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 100.0
+offset_top = -10.0
+offset_right = 180.0
+offset_bottom = 10.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "Speed: 1x"
+
+[node name="SpeedSlider" type="HSlider" parent="ControlPanel"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 190.0
+offset_top = -10.0
+offset_right = 290.0
+offset_bottom = 10.0
+min_value = 0.5
+max_value = 5.0
+step = 0.5
+value = 1.0

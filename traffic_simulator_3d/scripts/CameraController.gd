@@ -46,45 +46,91 @@ func setup_camera():
 		camera.name = "Camera3D"
 		add_child(camera)
 	
-	camera.fov = 75.0
-	camera.near = 0.1
-	camera.far = 500.0
+	# POSIÇÃO INICIAL SEGURA ACIMA DO CHÃO
+	camera.position = Vector3(0, 15, 20)  # Mais baixo e mais perto
+	camera.look_at(Vector3(0, 0, 0), Vector3.UP)
 	
-	set_orbital_mode()
+	# Usar projeção perspectiva como no HTML
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = 75.0  # HTML: PerspectiveCamera(75, ...)
+	camera.near = 0.1
+	camera.far = 1000.0  # HTML: far = 1000
+	
+	# Iniciar com modo orbital (controle de mouse)
+	current_mode = CameraMode.ORBITAL
 
 func _process(delta):
 	update_camera(delta)
 	apply_camera_shake(delta)
 
 func _input(event):
-	if event is InputEventMouseMotion and is_mouse_captured:
-		mouse_delta = event.relative
-	
-	elif event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			capture_mouse()
-		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			release_mouse()
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			zoom_camera(-zoom_speed)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			zoom_camera(zoom_speed)
-	
+	# CONTROLES DE MOUSE EXATOS DO HTML - linhas 382-423
+	if event is InputEventMouseButton:
+		handle_mouse_click(event)
+	elif event is InputEventMouseMotion:
+		handle_mouse_motion(event)
 	elif event.is_action_pressed("ui_camera_mode"):
 		cycle_camera_mode()
-	
 	elif event is InputEventKey and event.pressed:
 		match event.keycode:
-			KEY_1:
-				set_camera_mode(CameraMode.ORBITAL)
-			KEY_2:
-				set_camera_mode(CameraMode.FREE_LOOK)
-			KEY_3:
-				set_camera_mode(CameraMode.FOLLOW_CAR)
-			KEY_4:
-				set_camera_mode(CameraMode.TOP_DOWN)
-			KEY_5:
-				set_camera_mode(CameraMode.CINEMATIC)
+			KEY_R:  # Reset camera como no HTML
+				reset_camera()
+
+func handle_mouse_click(event: InputEventMouseButton):
+	if current_mode != CameraMode.ORBITAL:
+		return
+		
+	if event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			# HTML: document.addEventListener('mousedown', ...)
+			is_mouse_captured = true
+			mouse_delta = event.position
+		else:
+			# HTML: document.addEventListener('mouseup', ...)
+			is_mouse_captured = false
+	elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		# ZOOM COM SCROLL - HTML linhas 418-422
+		zoom_camera_orbital(-2.0)
+	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		zoom_camera_orbital(2.0)
+
+func handle_mouse_motion(event: InputEventMouseMotion):
+	if current_mode != CameraMode.ORBITAL or not is_mouse_captured:
+		return
+	
+	# LÓGICA EXATA DO HTML - linhas 396-414
+	var deltaX = event.position.x - mouse_delta.x
+	var deltaY = event.position.y - mouse_delta.y
+	
+	# Rotacionar câmera em volta da origem (HTML linha 403)
+	var distance = camera.position.length()
+	var phi = atan2(camera.position.z, camera.position.x) - deltaX * 0.01    # HTML linha 404
+	var theta = acos(camera.position.y / distance) + deltaY * 0.01           # HTML linha 405
+	
+	# Limitar theta para evitar flip
+	theta = clamp(theta, 0.1, PI - 0.1)
+	
+	# HTML: linhas 407-409
+	camera.position.x = distance * sin(theta) * cos(phi)
+	camera.position.y = distance * cos(theta)
+	camera.position.z = distance * sin(theta) * sin(phi)
+	
+	# HTML: camera.lookAt(0, 0, 0) - linha 411
+	camera.look_at(Vector3.ZERO, Vector3.UP)
+	
+	# HTML: linhas 413-414
+	mouse_delta = event.position
+
+func zoom_camera_orbital(delta_zoom: float):
+	# FUNÇÃO EXATA DO HTML - linhas 418-422
+	var distance = camera.position.length()
+	var newDistance = clamp(distance + delta_zoom, 10.0, 50.0)  # HTML linha 420
+	camera.position = camera.position * (newDistance / distance)  # HTML linha 421
+
+func reset_camera():
+	# FUNÇÃO DO HTML - função resetCamera() linhas 455-458
+	camera.position = Vector3(0, 25, 25)  # HTML: camera.position.set(0, 25, 25)
+	camera.look_at(Vector3.ZERO, Vector3.UP)  # HTML: camera.lookAt(0, 0, 0)
 
 func update_camera(delta):
 	match current_mode:
@@ -99,26 +145,28 @@ func update_camera(delta):
 		CameraMode.CINEMATIC:
 			update_cinematic_camera(delta)
 
-func update_orbital_camera(delta):
-	orbit_angle += orbit_speed * delta
+func update_orbital_camera(_delta):
+	# DESABILITAR ROTAÇÃO AUTOMÁTICA - apenas controle manual com mouse
+	# orbit_angle += orbit_speed * delta
+	
+	# Manter posição fixa se não há input do mouse
+	if not is_mouse_captured:
+		return
 	
 	var intersection_center = Vector3.ZERO
-	var x = sin(orbit_angle) * orbit_radius
-	var z = cos(orbit_angle) * orbit_radius
-	
-	camera.global_position = intersection_center + Vector3(x, orbit_height, z)
 	camera.look_at(intersection_center, Vector3.UP)
 
 func update_free_look_camera(delta):
-	# Mouse look
+	# Mouse look - aplicar rotação apenas na câmera
 	if mouse_delta.length() > 0:
+		# Rotação horizontal (Y) no nó pai
 		rotate_y(-mouse_delta.x * look_sensitivity * delta)
-		camera.rotate_x(-mouse_delta.y * look_sensitivity * delta)
 		
-		# Clamp vertical rotation
-		var x_rot = camera.rotation.x
-		x_rot = clamp(x_rot, -PI/2 + 0.1, PI/2 - 0.1)
-		camera.rotation.x = x_rot
+		# Rotação vertical (X) apenas na câmera
+		camera.rotation.x += -mouse_delta.y * look_sensitivity * delta
+		
+		# Clamp vertical rotation para evitar gimbal lock
+		camera.rotation.x = clamp(camera.rotation.x, -PI/2 + 0.1, PI/2 - 0.1)
 		
 		mouse_delta = Vector2.ZERO
 	
@@ -155,7 +203,7 @@ func update_follow_camera(delta):
 		var target_transform = camera.global_transform.looking_at(target_look_at, Vector3.UP)
 		camera.global_transform = camera.global_transform.interpolate_with(target_transform, follow_smoothing * delta)
 
-func update_top_down_camera(delta):
+func update_top_down_camera(_delta):
 	var intersection_center = Vector3.ZERO
 	camera.global_position = intersection_center + Vector3(0, 50, 0)
 	camera.look_at(intersection_center, Vector3(0, 0, -1))
@@ -206,8 +254,17 @@ func set_orbital_mode():
 	orbit_height = 15.0
 
 func set_free_look_mode():
-	camera.global_position = Vector3(15, 10, 15)
-	camera.look_at(Vector3.ZERO, Vector3.UP)
+	# Reset rotações para evitar orientação estranha
+	rotation = Vector3.ZERO
+	camera.rotation = Vector3.ZERO
+	
+	# Posição inicial do modo livre
+	global_position = Vector3(15, 10, 15)
+	camera.position = Vector3.ZERO  # Câmera no centro do nó pai
+	
+	# Olhar para o centro da interseção
+	look_at(Vector3.ZERO, Vector3.UP)
+	
 	capture_mouse()
 
 func set_follow_car_mode():
@@ -244,7 +301,7 @@ func zoom_camera(amount: float):
 func shake_camera(intensity: float):
 	shake_intensity = intensity
 
-func apply_camera_shake(delta: float):
+func apply_camera_shake(_delta: float):
 	if shake_intensity > 0.01:
 		var shake_offset = Vector3(
 			randf_range(-shake_intensity, shake_intensity),
@@ -263,8 +320,8 @@ func get_current_camera() -> Camera3D:
 func get_camera_mode_string() -> String:
 	return CameraMode.keys()[current_mode]
 
-func focus_on_position(position: Vector3, distance: float = 15.0):
+func focus_on_position(target_position: Vector3, distance: float = 15.0):
 	if current_mode == CameraMode.FREE_LOOK:
-		var direction = (camera.global_position - position).normalized()
-		camera.global_position = position + direction * distance
-		camera.look_at(position, Vector3.UP)
+		var direction = (camera.global_position - target_position).normalized()
+		camera.global_position = target_position + direction * distance
+		camera.look_at(target_position, Vector3.UP)

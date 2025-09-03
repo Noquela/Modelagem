@@ -18,7 +18,17 @@
       "mcp__godot__add_node",
       "mcp__godot__run_project",
       "mcp__godot__get_debug_output",
-      "mcp__godot__stop_project"
+      "mcp__godot__stop_project",
+      "Bash(git stash:*)",
+      "Bash(cp:*)",
+      "Bash(if [ -f temp_analytics.gd ])",
+      "Bash(then cp temp_analytics.gd traffic_simulator_3d/scripts/Analytics.gd)",
+      "Bash(fi)",
+      "Bash(if [ -f temp_cameracontroller.gd ])",
+      "Bash(then cp temp_cameracontroller.gd traffic_simulator_3d/scripts/CameraController.gd)",
+      "Bash(if [ -f temp_trafficlight.gd ])",
+      "Bash(then cp temp_trafficlight.gd traffic_simulator_3d/scripts/TrafficLight.gd)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

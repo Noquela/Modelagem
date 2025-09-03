@@ -3,17 +3,23 @@ class_name TrafficManager
 
 signal stats_updated(stats)
 
-# TIMING EXATO DO HTML - 37 segundos total
+# TIMING MODIFICADO - rua oeste-leste (mão dupla) fica mais tempo verde que a rua norte
 const CYCLE_TIMES = {
-	"green_time": 15.0,
+	"main_road_green": 20.0,  # Rua oeste-leste (dupla) - tempo verde MAIOR
+	"cross_road_green": 10.0, # Rua norte (única) - tempo verde MENOR
 	"yellow_time": 3.0,
 	"safety_time": 1.0,
-	"total_cycle": 37.0
+	"total_cycle": 40.0  # Novo ciclo total: 20s + 3s + 1s + 10s + 3s + 1s = 40s
 }
 
-var main_road_state = "red"  # North-South (principal)
-var cross_road_state = "red"  # East-West (transversal)
+var main_road_state = "green"  # Rua principal começa VERDE (West/East)
+var cross_road_state = "red"   # Rua transversal começa VERMELHA (North) - forma fila
 var cycle_start_time: float = 0.0
+
+# SEMÁFOROS PARA PEDESTRES - com margem de segurança
+var pedestrian_main_state = "red"    # Atravessar a rua principal (West-East)
+var pedestrian_cross_state = "red"   # Atravessar a rua transversal (North-South)
+const PEDESTRIAN_SAFETY_MARGIN = 2.0  # 2 segundos de margem antes e depois
 
 var cars: Array = []
 var traffic_lights: Array[Node3D] = []
@@ -39,7 +45,7 @@ var analytics_data = {
 func _ready():
 	cycle_start_time = Time.get_unix_time_from_system()
 	add_to_group("traffic_manager")
-	print("Traffic Manager initialized - EXATO HTML: 37s cycle (15s green, 3s yellow, 1s safety)")
+	# Initialization print removed for performance
 	set_process(true)
 
 func _process(delta):
@@ -53,34 +59,75 @@ func _process(delta):
 	emit_signal("stats_updated", get_current_stats())
 
 func update_traffic_lights():
-	# LÓGICA EXATA DO HTML - timing preciso
+	# NOVO CICLO: Rua oeste-leste (dupla) fica mais tempo verde
 	var current_time = Time.get_unix_time_from_system()
-	var elapsed = fmod(current_time - cycle_start_time, 37.0)  # 37s EXATO
+	var elapsed = fmod(current_time - cycle_start_time, CYCLE_TIMES.total_cycle)
+	var phase = elapsed / CYCLE_TIMES.total_cycle  # Fase normalizada (0-1)
 	
-	# ESTADOS EXATOS DO HTML COM TEMPO DE SEGURANÇA:
-	if elapsed < 15.0:
-		# Fase 1: Rua principal (LEFT_TO_RIGHT + RIGHT_TO_LEFT) VERDE
+	# NOVO CICLO (40s total): 20s verde oeste-leste + 3s amarelo + 1s segurança + 10s verde norte + 3s amarelo + 1s segurança
+	if phase < (20.0/40.0):  # 0-20s
+		# Rua principal (oeste-leste) VERDE por 20s - MAIS TEMPO
 		main_road_state = "green"
 		cross_road_state = "red"
-	elif elapsed < 18.0:
-		# Fase 2: Rua principal AMARELO
+	elif phase < (23.0/40.0):  # 20-23s
+		# Rua principal amarelo (3s)
 		main_road_state = "yellow"
 		cross_road_state = "red"
-	elif elapsed < 19.0:
-		# Fase 3: TEMPO DE SEGURANÇA - INOVAÇÃO DO HTML - ambos VERMELHO
+	elif phase < (24.0/40.0):  # 23-24s
+		# TEMPO DE SEGURANÇA: ambos vermelhos (1s)
 		main_road_state = "red"
 		cross_road_state = "red"
-	elif elapsed < 34.0:
-		# Fase 4: Rua transversal (TOP_TO_BOTTOM apenas) VERDE
+	elif phase < (34.0/40.0):  # 24-34s
+		# Rua norte VERDE por apenas 10s - MENOS TEMPO
 		main_road_state = "red"
 		cross_road_state = "green"
-	else:
-		# Fase 5: Rua transversal AMARELO
+	elif phase < (37.0/40.0):  # 34-37s
+		# Rua norte amarelo (3s)
 		main_road_state = "red"
 		cross_road_state = "yellow"
+	else:  # 37-40s
+		# TEMPO DE SEGURANÇA FINAL: ambos vermelhos (3s)
+		main_road_state = "red"
+		cross_road_state = "red"
+	
+	# 🚶 SEMÁFOROS DE PEDESTRES com margem de segurança de 2s
+	update_pedestrian_lights(phase)
+	
+	# Debug dos estados dos semáforos - PERFORMANCE: less frequent
+	if fmod(simulation_time, 10.0) < 0.1:  # A cada 10 segundos (was 3s)
+		pass  # Debug print removed for performance - only critical info in console
 	
 	# Atualizar apenas os 3 semáforos corretos
 	update_traffic_light_visuals()
+
+func update_pedestrian_lights(phase: float):
+	# 🚶 LÓGICA DOS SEMÁFOROS DE PEDESTRES COM MARGEM DE SEGURANÇA
+	# Pedestres podem atravessar apenas quando carros estão com VERMELHO completo
+	# Margem de 2s antes e depois dos carros mudarem para verde
+	
+	var margin_normalized = PEDESTRIAN_SAFETY_MARGIN / CYCLE_TIMES.total_cycle  # 2s/40s = 0.05
+	
+	# ATRAVESSAR RUA PRINCIPAL (West-East): quando cross_road está verde
+	# Carros da rua transversal (North-South) estão verdes: 24-34s (phase 0.6-0.85)
+	# Pedestres podem atravessar: 26-32s (com margem de 2s cada lado)
+	var cross_green_start = 24.0/40.0  # 0.6
+	var cross_green_end = 34.0/40.0    # 0.85
+	
+	if phase > (cross_green_start + margin_normalized) and phase < (cross_green_end - margin_normalized):
+		pedestrian_main_state = "walk"  # Pode atravessar a rua principal
+	else:
+		pedestrian_main_state = "dont_walk"
+	
+	# ATRAVESSAR RUA TRANSVERSAL (North-South): quando main_road está verde  
+	# Carros da rua principal (West-East) estão verdes: 0-20s (phase 0.0-0.5)
+	# Pedestres podem atravessar: 2-18s (com margem de 2s cada lado)
+	var main_green_start = 0.0/40.0   # 0.0
+	var main_green_end = 20.0/40.0    # 0.5
+	
+	if phase > (main_green_start + margin_normalized) and phase < (main_green_end - margin_normalized):
+		pedestrian_cross_state = "walk"  # Pode atravessar a rua transversal
+	else:
+		pedestrian_cross_state = "dont_walk"
 
 func update_traffic_light_visuals():
 	# APENAS 3 SEMÁFOROS como no HTML original
@@ -109,10 +156,12 @@ func get_light_state_for_direction(direction: String) -> String:
 			return main_road_state
 		"East":  # RIGHT_TO_LEFT  
 			return main_road_state
-		"North": # TOP_TO_BOTTOM (mão única)
+		"North": # TOP_TO_BOTTOM 
+			return cross_road_state
+		"South": # BOTTOM_TO_TOP
 			return cross_road_state
 		_:
-			return "red"  # BOTTOM_TO_TOP não existe mais
+			return "red"  # Direção desconhecida
 
 func is_safe_to_proceed(direction: String) -> bool:
 	# LÓGICA DE SEGURANÇA DO HTML
@@ -154,7 +203,9 @@ func get_current_stats() -> Dictionary:
 		"congestion": analytics_data.congestion_level,
 		"main_road_state": main_road_state,
 		"cross_road_state": cross_road_state,
-		"cycle_time": fmod(Time.get_unix_time_from_system() - cycle_start_time, 37.0)
+		"pedestrian_main_state": pedestrian_main_state,
+		"pedestrian_cross_state": pedestrian_cross_state,
+		"cycle_time": fmod(Time.get_unix_time_from_system() - cycle_start_time, CYCLE_TIMES.total_cycle)
 	}
 
 func pause_simulation():
@@ -188,7 +239,24 @@ func update_analytics():
 func get_analytics_data() -> Dictionary:
 	return analytics_data
 
+# 🚶 FUNÇÕES PARA ACESSAR ESTADOS DOS SEMÁFOROS DE PEDESTRES
+func get_pedestrian_main_state() -> String:
+	# Estado para atravessar a rua principal (West-East)
+	return pedestrian_main_state
+
+func get_pedestrian_cross_state() -> String:
+	# Estado para atravessar a rua transversal (North-South)  
+	return pedestrian_cross_state
+
+func can_pedestrian_cross_main_road() -> bool:
+	# Verifica se pedestre pode atravessar rua principal
+	return pedestrian_main_state == "walk"
+
+func can_pedestrian_cross_cross_road() -> bool:
+	# Verifica se pedestre pode atravessar rua transversal
+	return pedestrian_cross_state == "walk"
+
 # FUNÇÃO HELPER para debug
 func get_debug_info() -> String:
-	var elapsed = fmod(Time.get_unix_time_from_system() - cycle_start_time, 37.0)
-	return "HTML Logic | Cycle: %.1fs/37s | Main(W+E): %s | Cross(N): %s | Cars: %d" % [elapsed, main_road_state, cross_road_state, cars.size()]
+	var elapsed = fmod(Time.get_unix_time_from_system() - cycle_start_time, CYCLE_TIMES.total_cycle)
+	return "Modified Logic | Cycle: %.1fs/40s | Main(W+E): %s | Cross(N): %s | Cars: %d" % [elapsed, main_road_state, cross_road_state, cars.size()]

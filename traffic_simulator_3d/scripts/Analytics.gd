@@ -1,10 +1,11 @@
 extends Control
 
-@onready var fps_label = $VBoxContainer/StatsPanel/FPSLabel
-@onready var cars_label = $VBoxContainer/StatsPanel/CarsLabel
-@onready var throughput_label = $VBoxContainer/StatsPanel/ThroughputLabel
-@onready var congestion_label = $VBoxContainer/StatsPanel/CongestionLabel
-@onready var time_label = $VBoxContainer/StatsPanel/TimeLabel
+# UI Labels will be created programmatically
+var fps_label: Label
+var cars_label: Label 
+var throughput_label: Label
+var congestion_label: Label
+var time_label: Label
 
 # Chart data
 var throughput_history: Array[float] = []
@@ -21,60 +22,171 @@ func _ready():
 	set_process(true)
 
 func create_ui_elements():
-	# Main container
+	# Create modern dashboard layout
+	create_modern_dashboard()
+
+func create_styled_panel(bg_color: Color) -> Panel:
+	# Create a panel with custom background color
+	var panel = Panel.new()
+	var style_box = StyleBoxFlat.new()
+	style_box.bg_color = bg_color
+	panel.add_theme_stylebox_override("panel", style_box)
+	return panel
+
+var ui_visible: bool = true
+
+func create_modern_dashboard():
+	# Create compact UI that doesn't block game view
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	set_mouse_filter(Control.MOUSE_FILTER_IGNORE)  # Let clicks pass through
+	
+	# Create compact stats overlay (top-left)
+	create_compact_stats_overlay()
+	
+	# Add toggle instruction
+	create_toggle_instruction()
+
+func create_compact_stats_overlay():
+	var stats_overlay = create_styled_panel(Color(0.05, 0.05, 0.08, 0.8))
+	stats_overlay.name = "StatsOverlay"
+	stats_overlay.position = Vector2(10, 10)
+	stats_overlay.size = Vector2(280, 160)
+	stats_overlay.set_mouse_filter(Control.MOUSE_FILTER_STOP)  # This panel captures mouse
+	add_child(stats_overlay)
+	
 	var vbox = VBoxContainer.new()
-	vbox.name = "VBoxContainer"
-	add_child(vbox)
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 4)
+	stats_overlay.add_child(vbox)
 	
 	# Title
 	var title = Label.new()
-	title.text = "Traffic Simulator 3D - Analytics"
-	title.add_theme_font_size_override("font_size", 24)
+	title.text = "🚦 Traffic Sim 3D"
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", Color.CYAN)
 	vbox.add_child(title)
 	
-	# Stats panel
-	stats_panel = Panel.new()
-	stats_panel.name = "StatsPanel"
-	stats_panel.custom_minimum_size = Vector2(300, 200)
-	vbox.add_child(stats_panel)
+	# Compact stats
+	fps_label = create_compact_stat("FPS", "60", Color.LIME_GREEN, vbox)
+	cars_label = create_compact_stat("Cars", "0", Color.ORANGE, vbox)
+	throughput_label = create_compact_stat("Throughput", "0.0/s", Color.GREEN, vbox)
+	congestion_label = create_compact_stat("Congestion", "0%", Color.RED, vbox)
+	time_label = create_compact_stat("Time", "00:00", Color.LIGHT_BLUE, vbox)
+
+func create_compact_stat(label_text: String, value_text: String, color: Color, parent: VBoxContainer) -> Label:
+	var hbox = HBoxContainer.new()
+	parent.add_child(hbox)
 	
-	var stats_vbox = VBoxContainer.new()
-	stats_panel.add_child(stats_vbox)
+	var label = Label.new()
+	label.text = label_text + ":"
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.custom_minimum_size.x = 80
+	hbox.add_child(label)
 	
-	# Create labels
-	fps_label = Label.new()
-	fps_label.name = "FPSLabel"
-	fps_label.text = "FPS: 60.0"
-	stats_vbox.add_child(fps_label)
+	var value_label = Label.new()
+	value_label.text = value_text
+	value_label.add_theme_font_size_override("font_size", 11)
+	value_label.add_theme_color_override("font_color", color)
+	hbox.add_child(value_label)
 	
-	cars_label = Label.new()
-	cars_label.name = "CarsLabel"
-	cars_label.text = "Active Cars: 0"
-	stats_vbox.add_child(cars_label)
+	return value_label
+
+func create_toggle_instruction():
+	var instruction = Label.new()
+	instruction.text = "Press [H] to hide/show stats"
+	instruction.position = Vector2(10, 180)
+	instruction.add_theme_font_size_override("font_size", 10)
+	instruction.add_theme_color_override("font_color", Color.GRAY)
+	add_child(instruction)
+
+func create_stats_sidebar():
+	var sidebar = create_styled_panel(Color(0.08, 0.08, 0.1, 0.9))
+	sidebar.name = "StatsSidebar"
+	sidebar.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	sidebar.offset_top = 60  # Below top bar
+	sidebar.size.x = 300
+	add_child(sidebar)
 	
-	throughput_label = Label.new()
-	throughput_label.name = "ThroughputLabel"
-	throughput_label.text = "Throughput: 0.0 cars/sec"
-	stats_vbox.add_child(throughput_label)
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 10)
+	sidebar.add_child(vbox)
 	
-	congestion_label = Label.new()
-	congestion_label.name = "CongestionLabel" 
-	congestion_label.text = "Congestion: 0%"
-	stats_vbox.add_child(congestion_label)
+	# Section title
+	var section_title = Label.new()
+	section_title.text = "📊 Live Statistics"
+	section_title.add_theme_font_size_override("font_size", 18)
+	section_title.add_theme_color_override("font_color", Color.CYAN)
+	vbox.add_child(section_title)
 	
-	time_label = Label.new()
-	time_label.name = "TimeLabel"
-	time_label.text = "Simulation Time: 00:00"
-	stats_vbox.add_child(time_label)
+	# Create metric cards
+	cars_label = create_metric_card("🚗 Active Cars", "0", Color.ORANGE, vbox)
+	throughput_label = create_metric_card("⚡ Throughput", "0.0 cars/sec", Color.GREEN, vbox)
+	congestion_label = create_metric_card("🚥 Congestion", "0%", Color.RED, vbox)
+	time_label = create_metric_card("⏱️ Sim Time", "00:00", Color.LIGHT_BLUE, vbox)
+
+func create_metric_card(title: String, value: String, color: Color, parent: VBoxContainer) -> Label:
+	var card = create_styled_panel(Color(0.12, 0.12, 0.15, 0.8))
+	card.custom_minimum_size.y = 60
+	parent.add_child(card)
 	
-	# Controls panel
-	create_control_panel(vbox)
+	var card_vbox = VBoxContainer.new()
+	card_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	card.add_child(card_vbox)
 	
-	# Chart area
-	create_charts_panel(vbox)
+	var title_label = Label.new()
+	title_label.text = title
+	title_label.add_theme_font_size_override("font_size", 12)
+	title_label.add_theme_color_override("font_color", Color.WHITE)
+	card_vbox.add_child(title_label)
 	
-	# Personality breakdown
-	create_personality_panel(vbox)
+	var value_label = Label.new()
+	value_label.text = value
+	value_label.add_theme_font_size_override("font_size", 18)
+	value_label.add_theme_color_override("font_color", color)
+	card_vbox.add_child(value_label)
+	
+	return value_label
+
+func create_controls_panel():
+	var controls = create_styled_panel(Color(0.08, 0.08, 0.1, 0.9))
+	controls.name = "ControlsPanel"
+	controls.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	controls.offset_top = 60
+	controls.size = Vector2(250, 200)
+	add_child(controls)
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	controls.add_child(vbox)
+	
+	var controls_title = Label.new()
+	controls_title.text = "⚙️ Simulation Controls"
+	controls_title.add_theme_font_size_override("font_size", 16)
+	controls_title.add_theme_color_override("font_color", Color.YELLOW)
+	vbox.add_child(controls_title)
+	
+	# Placeholder for future controls
+	var status_label = Label.new()
+	status_label.text = "Status: Running"
+	status_label.add_theme_color_override("font_color", Color.LIME_GREEN)
+	vbox.add_child(status_label)
+
+func create_charts_area():
+	var charts = create_styled_panel(Color(0.08, 0.08, 0.1, 0.9))
+	charts.name = "ChartsArea"
+	charts.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	charts.offset_top = -200
+	charts.size.y = 200
+	add_child(charts)
+	
+	var charts_title = Label.new()
+	charts_title.text = "📈 Real-time Analytics"
+	charts_title.position = Vector2(10, 10)
+	charts_title.add_theme_font_size_override("font_size", 16)
+	charts_title.add_theme_color_override("font_color", Color.MAGENTA)
+	charts.add_child(charts_title)
 
 func create_control_panel(parent: VBoxContainer):
 	var control_panel = Panel.new()
@@ -133,19 +245,19 @@ func create_personality_panel(parent: VBoxContainer):
 	personality_breakdown.add_child(personality_label)
 
 func update_display(stats: Dictionary):
-	# Update basic stats
+	# Update modern dashboard metrics
 	if fps_label:
-		fps_label.text = "FPS: %.1f" % stats.get("fps", 60.0)
+		fps_label.text = "FPS: %.0f" % stats.get("fps", 60.0)
 	
 	if cars_label:
-		cars_label.text = "Active Cars: %d" % stats.get("active_cars", 0)
+		cars_label.text = "%d" % stats.get("active_cars", 0)
 	
 	if throughput_label:
-		throughput_label.text = "Throughput: %.2f cars/sec" % stats.get("throughput", 0.0)
+		throughput_label.text = "%.1f cars/sec" % stats.get("throughput", 0.0)
 	
 	if congestion_label:
 		var congestion_percent = stats.get("congestion", 0.0) * 100
-		congestion_label.text = "Congestion: %.0f%%" % congestion_percent
+		congestion_label.text = "%.0f%%" % congestion_percent
 	
 	if time_label:
 		var sim_time = stats.get("simulation_time", 0.0)
@@ -266,7 +378,15 @@ func update_personality_display():
 			personality_breakdown.add_child(stat_label)
 			y_offset += 25
 
-func _process(delta):
+func _process(_delta):
+	# Handle UI toggle
+	if Input.is_action_just_pressed("ui_accept") or Input.is_key_pressed(KEY_H):
+		toggle_ui_visibility()
+	
 	# Update personality display periodically
 	if Engine.get_process_frames() % 60 == 0:  # Every second
 		update_personality_display()
+
+func toggle_ui_visibility():
+	ui_visible = !ui_visible
+	visible = ui_visible
