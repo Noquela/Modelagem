@@ -1,247 +1,362 @@
-# Traffic Simulator 3D - Python Edition
+# Traffic Simulator 3D - Godot Engine
 
-Um simulador de tráfego 3D avançado desenvolvido em Python com IA comportamental, renderização em tempo real e física realística. Baseado em especificações detalhadas e protótipos testados.
+Um simulador de tráfego 3D avançado desenvolvido em **Godot 4.x** com IA comportamental, física IDM realística e sistema de pedestres. Arquitetura modular com performance otimizada para 100+ veículos simultâneos.
 
 ![Traffic Simulator 3D](Inspiration/image.png)
 
 ## 🚦 Características Principais
 
-### ⚡ Performance Otimizada
-- **Renderização 3D** com ModernGL e OpenGL moderno
-- **Instanced rendering** para centenas de carros simultâneos
-- **Frustum culling** e LOD system automático
-- **60 FPS** consistentes mesmo com 100+ veículos
+### ⚡ Performance Otimizada  
+- **Godot Engine 4.x** com Vulkan/OpenGL rendering
+- **CharacterBody3D** para física anti-teleporte realística
+- **Node3D hierarchy** otimizada para centenas de objetos
+- **60 FPS** consistentes com 100+ veículos e pedestres
 
 ### 🧠 IA Comportamental Avançada
-- **4 Tipos de Personalidade**: Agressivo, Conservador, Normal, Idoso
-- **Reações Individualizadas**: Cada motorista tem tempos de reação únicos
-- **Lógica de Amarelo Inteligente**: Decisões baseadas em distância + personalidade
-- **Formação de Filas Realística**: Carros continuam spawning mesmo com semáforo vermelho
+- **4 Personalidades de Motorista**: AGGRESSIVE, CONSERVATIVE, NORMAL, ELDERLY
+- **IDM (Intelligent Driver Model)**: Física de seguimento realística
+- **Sistema de Estados**: Approaching, Stopping, MovingThroughIntersection
+- **Lógica de Amarelo Inteligente**: Baseada em distância e personalidade
 
-### 🚗 Sistema de Carros Realístico
-- **Física Baseada em Velocidade**: Aceleração e desaceleração graduais
-- **Variações Individuais**: ±20% de velocidade, cores realísticas
-- **Detecção de Obstáculos**: Prioridade para carros à frente, depois semáforos
-- **Estatísticas Detalhadas**: Tempo de espera, personalidade, estado atual
+### 🚗 Sistema Veicular Avançado
+- **CharacterBody3D Physics**: Movimento suave sem teleporte
+- **Collision Detection**: Sistema de 5 layers para diferentes tipos
+- **Steering Behaviors**: Reynolds pattern para navegação natural
+- **Material PBR**: Texturas realísticas com metallic/roughness
 
-### 🚥 Semáforos Sincronizados
-- **Lógica do Mundo Real**: 15s verde, 3s amarelo, 1s segurança
-- **Rua Principal**: 2 semáforos sincronizados (duas mãos)
-- **Rua Transversal**: 1 semáforo (mão única, direção oposta)
-- **Ciclo Total**: 37 segundos com tempos de segurança
+### 🚥 Controle de Tráfego Sincronizado
+- **Ciclo de 40s**: 20s verde rua principal + 10s verde transversal
+- **3 Semáforos Físicos**: Postes, hastes e luzes 3D realísticas
+- **Sistema de Pedestres**: Sinais integrados com margem de segurança
+- **Estados Visuais**: Emissão de luz dinâmica e materials
 
-### 🎮 Controles e Interface
-- **Câmera Orbital**: Mouse para rotação, scroll para zoom
-- **Controles WASD**: Movimento livre da câmera
-- **Estatísticas em Tempo Real**: FPS, throughput, congestionamento
-- **Debug Avançado**: Informações detalhadas de IA e performance
+### 🚶 Sistema de Pedestres
+- **Modelos 3D Animados**: Humans com animações de caminhada
+- **IA de Travessia**: Respeita semáforos com margem de segurança (2s)
+- **Spawn Direcionais**: 4 pontos de origem com destinos aleatórios
+- **Detecção de Colisão**: Evita carros e outros pedestres
 
-## 🏗️ Arquitetura Modular
+### 🎮 Câmera e Controles
+- **5 Modos de Câmera**: Orbital, Free-look, Follow, Top-down, Cinematic
+- **Mouse Orbital**: Rotação suave em torno da intersecção
+- **Controles WASD**: Movimento livre + QE para altura
+- **UI Analytics**: Dashboard compacto com métricas em tempo real
+
+## 🏗️ Arquitetura Godot
 
 ```
-traffic_simulator/
-├── main.py                 # Entry point e loop principal
-├── core/
-│   ├── engine.py          # Engine 3D (ModernGL wrapper)
-│   ├── scene.py           # Gerenciamento de cena 3D
-│   └── camera.py          # Sistema de câmera orbital
-├── entities/
-│   ├── car.py             # Classe Car com IA comportamental
-│   └── traffic_light.py   # Sistema de semáforos sincronizados
-├── systems/
-│   ├── spawn_system.py    # Sistema de spawn inteligente
-│   └── ai_system.py       # IA coletiva e análise de tráfego
-└── utils/
-    ├── math_helpers.py    # Utilitários matemáticos 3D
-    └── config.py          # Configurações centralizadas
+traffic_simulator_3d/
+├── project.godot           # Configuração do projeto Godot
+├── scenes/
+│   ├── Main.tscn          # Cena principal com intersecção 3D
+│   ├── Car.tscn           # Prefab do veículo com IA
+│   └── UI.tscn            # Interface e analytics dashboard
+├── scripts/
+│   ├── Main.gd            # Controlador principal e setup da cena
+│   ├── Car.gd             # IA veicular com IDM e personalidades
+│   ├── TrafficManager.gd  # Sistema de semáforos sincronizados  
+│   ├── SpawnSystem.gd     # Spawn multi-direcional inteligente
+│   ├── TrafficLight.gd    # Semáforos 3D com geometria realística
+│   ├── CameraController.gd # 5 modos de câmera + controles
+│   ├── Analytics.gd       # Dashboard e métricas em tempo real
+│   ├── Pedestrian.gd      # IA de pedestres com travessia segura
+│   └── PedestrianSpawnSystem.gd # Sistema de spawn de pedestres
+└── assets/
+    ├── vehicles/          # Modelos 3D de carros (.glb, .fbx)
+    ├── textures/          # Texturas PBR para materiais
+    └── ui/                # Fontes e elementos de interface
 ```
 
 ## 🚀 Instalação e Execução
 
 ### Pré-requisitos
-- Python 3.8+
-- Windows/Linux/macOS com suporte a OpenGL 3.3+
+- **Godot Engine 4.x** (Download: [godotengine.org](https://godotengine.org))
+- Windows/Linux/macOS com suporte a Vulkan/OpenGL
+- 4GB RAM mínimo, 8GB recomendado
 
 ### Instalação
 ```bash
 # Clone o repositório
-git clone <repository-url>
-cd traffic_simulator
+git clone https://github.com/Noquela/Modelagem.git
+cd Modelagem/traffic_simulator_3d
 
-# Instale as dependências
-pip install -r requirements.txt
+# Abra o projeto no Godot Editor
+# Arquivo > Importar Projeto > Selecionar 'project.godot'
 
-# Execute o simulador
-python main.py
+# Execute diretamente no editor ou exporte para standalone
 ```
 
-### Dependências Principais
+### Estrutura de Assets
 ```
-moderngl>=5.6.4    # Renderização OpenGL moderna
-pygame>=2.1.0      # Window management e input
-numpy>=1.21.0      # Matemática e arrays
-pyrr>=0.10.3       # Matemática 3D adicional
+assets/
+├── vehicles/              # Modelos 3D dos veículos
+│   ├── sedan.glb         # Carro sedan padrão
+│   ├── suv.glb           # SUV para variação
+│   └── ambulance.glb     # Veículos de emergência
+├── textures/             # Texturas PBR 
+│   ├── asphalt_albedo.png    # Textura do asfalto
+│   ├── concrete_normal.png   # Normal maps
+│   └── metal_roughness.png   # Mapas de rugosidade
+└── ui/                   # Assets da interface
+    └── Kenney Future.ttf # Fonte para o dashboard
 ```
 
 ## 🎯 Controles
 
 | Controle | Ação |
 |----------|------|
-| **Mouse** | Rotacionar câmera em torno da intersecção |
-| **Scroll** | Zoom in/out |
-| **WASD** | Mover target da câmera |
-| **Q/E** | Mover câmera para cima/baixo |
+| **Mouse** | Rotação orbital da câmera |
+| **Scroll** | Zoom in/out suave |
+| **WASD** | Movimento livre da câmera |
+| **Q/E** | Subir/descer câmera |
+| **1-5** | Alternar modos de câmera (Orbital, Free, Follow, Top, Cinematic) |
 | **SPACE** | Pausar/Retomar simulação |
-| **R** | Reset câmera para posição padrão |
-| **F1** | Mostrar/ocultar debug info |
-| **F2** | Reset completo da simulação |
-| **ESC** | Sair |
+| **R** | Reset câmera para posição inicial |
+| **F1** | Toggle dashboard de analytics |
+| **F11** | Fullscreen |
+| **ESC** | Sair do jogo |
 
 ## 📊 Configuração Avançada
 
-### Personalidades dos Motoristas
-```python
-DRIVER_PERSONALITIES = {
-    'AGGRESSIVE': {
-        'reaction_time': (0.5, 0.8),     # Reação rápida
-        'following_distance_factor': 0.8, # Distância menor
-        'yellow_light_probability': 0.8,  # 80% acelera no amarelo
+### Personalidades dos Motoristas (Car.gd)
+```gdscript
+enum DriverPersonality {
+    AGGRESSIVE,     # Reação rápida, distância menor, 80% acelera no amarelo
+    CONSERVATIVE,   # Reação lenta, distância maior, 10% acelera no amarelo  
+    NORMAL,         # Comportamento padrão balanceado
+    ELDERLY         # Extra cauteloso, velocidade reduzida
+}
+
+# Configuração por personalidade
+var personality_configs = {
+    DriverPersonality.AGGRESSIVE: {
+        "reaction_time_range": [0.3, 0.6],
+        "following_distance_factor": 0.6,
+        "max_speed_factor": 1.2,
+        "yellow_light_aggression": 0.8
     },
-    'CONSERVATIVE': {
-        'reaction_time': (1.2, 2.0),     # Reação lenta
-        'following_distance_factor': 1.4, # Distância maior
-        'yellow_light_probability': 0.1,  # 10% acelera no amarelo
-    },
-    # ... mais personalidades
+    # ... outras configurações
 }
 ```
 
-### Configurações de Performance
-```python
-RENDER_CONFIG = {
-    'target_fps': 60,
-    'msaa_samples': 4,
-    'enable_frustum_culling': True,
-    'max_cars_per_batch': 100,
+### Sistema de Semáforos (TrafficManager.gd)  
+```gdscript
+# Timing modificado - rua oeste-leste fica mais tempo verde
+const CYCLE_TIMES = {
+    "main_road_green": 20.0,    # Rua principal (W-E) - 20s
+    "cross_road_green": 10.0,   # Rua transversal (N) - 10s  
+    "yellow_time": 3.0,         # Tempo de amarelo
+    "safety_time": 1.0,         # Intervalo de segurança
+    "total_cycle": 40.0         # Ciclo completo
 }
 ```
 
-### Configurações de Spawn
-```python
-SPAWN_CONFIG = {
-    'base_rate': 0.025,           # Taxa base de spawn
-    'randomness_factor': 0.5,     # Variação aleatória (±50%)
-    'rush_hour_multiplier': 1.5,  # Multiplicador de rush hour
+### Configurações de Spawn (SpawnSystem.gd)
+```gdscript
+# Taxas de spawn por direção (carros/segundo)
+var spawn_rates = {
+    "West": 0.03,    # Maior fluxo na rua principal
+    "East": 0.03,    # Mesma taxa na mão dupla
+    "South": 0.015   # Menor fluxo na rua transversal
 }
+
+# Limites dinâmicos de população
+const MAX_CARS_PER_DIRECTION = 15
+const MIN_SPAWN_DISTANCE = 4.0
 ```
 
 ## 🔬 Algoritmos Implementados
 
-### 1. **Detecção de Obstáculos Inteligente**
-```python
-def check_obstacles(car):
-    # PRIORIDADE 1: Carros à frente
-    # PRIORIDADE 2: Semáforos (só se conseguir parar antes da intersecção)
-    # REGRA: Não parar no meio da intersecção
+### 1. **IDM (Intelligent Driver Model)**
+```gdscript
+func calculate_idm_acceleration() -> float:
+    var desired_gap = safe_time_headway + max(0.0, velocity + velocity * 
+        (velocity - front_car_velocity) / (2.0 * sqrt(max_accel * comfortable_decel)))
+    var gap_ratio = desired_gap / max(current_gap, 0.1)
+    
+    return max_accel * (1.0 - pow(velocity/desired_speed, 4.0) - pow(gap_ratio, 2.0))
 ```
 
-### 2. **Sistema de Filas Dinâmicas**
-```python
-def calculate_queue_position(car, direction, lane):
-    # Encontrar posição na fila
-    # Permitir spawn atrás da fila
-    # Distância direcional correta
+### 2. **Sistema de Estados de Intersecção**
+```gdscript
+enum IntersectionState {
+    APPROACHING,              # Aproximando da intersecção
+    STOPPING,                # Parando no semáforo
+    MOVING_THROUGH_INTERSECTION # Atravessando (sem parar)
+}
+
+func update_intersection_logic(delta: float):
+    match intersection_state:
+        IntersectionState.APPROACHING:
+            check_traffic_light_and_decide()
+        IntersectionState.STOPPING:
+            wait_for_green_light() 
+        IntersectionState.MOVING_THROUGH_INTERSECTION:
+            continue_through_intersection()
 ```
 
-### 3. **Spawn Inteligente com Formação de Filas**
-```python
-def can_spawn_or_queue(direction, lane):
-    # 1. Verificar espaço livre para spawn normal
-    # 2. Se não há espaço, verificar se pode formar fila
-    # 3. Algoritmo direcional para distâncias corretas
+### 3. **Steering Behaviors (Reynolds Pattern)**
+```gdscript
+func calculate_steering_force() -> Vector3:
+    var steer_force = Vector3.ZERO
+    
+    # Seek toward target
+    steer_force += seek_target() * seek_weight
+    
+    # Avoid obstacles  
+    steer_force += avoid_obstacles() * avoidance_weight
+    
+    # Separate from other cars
+    steer_force += separate_from_neighbors() * separation_weight
+    
+    return steer_force.limit_length(max_steering_force)
 ```
 
-## 📈 Estatísticas e Métricas
+## 📈 Analytics e Métricas em Tempo Real
 
-O simulador coleta métricas detalhadas em tempo real:
+### Dashboard Compacto (Analytics.gd)
+- **FPS**: Taxa de quadros em tempo real
+- **Carros Ativos**: Contagem total na cena
+- **Taxa de Spawn**: Carros spawned/segundo
+- **Throughput**: Carros que passaram pela intersecção
+- **Congestionamento**: Nível percentual por direção
+- **Estados dos Semáforos**: Visualização em tempo real
 
-- **Throughput**: Carros/minuto por direção
-- **Tempo de Espera Médio**: Por tipo de motorista
-- **Nível de Congestionamento**: 0-100% por via
-- **Eficiência da Intersecção**: Tempo útil vs tempo de espera
-- **Colisões Potenciais**: Sistema de prevenção ativo
+### Métricas Avançadas
+```gdscript
+func get_current_stats() -> Dictionary:
+    return {
+        "simulation_time": simulation_time,
+        "active_cars": cars.size(),
+        "fps": get_average_fps(),
+        "total_spawned": analytics_data.total_cars_spawned,
+        "throughput": analytics_data.throughput_per_second,
+        "congestion": analytics_data.congestion_level,
+        "main_road_state": main_road_state,
+        "cross_road_state": cross_road_state,
+        "pedestrian_main_state": pedestrian_main_state,
+        "pedestrian_cross_state": pedestrian_cross_state
+    }
+```
 
 ## 🎨 Características Visuais
 
-### Renderização 3D Realística
-- **Carros 3D**: Modelos com carroceria, janelas e rodas
-- **Semáforos Detalhados**: Postes, hastes e luzes funcionais
-- **Ambiente Completo**: Ruas, grama, linhas de faixa
-- **Iluminação Dinâmica**: Luzes dos semáforos mudam de intensidade
+### Ambiente 3D Completo (Main.gd)
+- **Intersecção Realística**: 4 braços com faixas de pedestres
+- **Semáforos 3D**: Postes metálicos, hastes e caixas de controle
+- **Texturas PBR**: Asfalto, concreto, metal com normal maps
+- **Iluminação Dinâmica**: Luzes direcionais + ambiente realística
 
-### Sistema de Cores
-- **Carros**: Cores realísticas (preto, branco, prata, etc.)
-- **Semáforos**: Vermelho/Amarelo/Verde com intensidade variável
-- **Ambiente**: Verde para grama, cinza para asfalto
+### Modelos de Veículos
+```gdscript
+# Variação de modelos e cores
+var available_models = ["sedan.glb", "suv.glb", "hatchback-sports.glb"]
+var car_colors = [
+    Color(0.1, 0.1, 0.1),      # Preto
+    Color(0.9, 0.9, 0.9),      # Branco  
+    Color(0.3, 0.3, 0.4),      # Cinza escuro
+    Color(0.7, 0.1, 0.1),      # Vermelho
+    Color(0.1, 0.3, 0.7)       # Azul
+]
+```
 
-## 🧪 Features Experimentais
+### Sistema de Luzes dos Semáforos
+- **Emissão Dinâmica**: Materials com `emission_energy` variável
+- **Luzes OmniLight3D**: Iluminação ambiente realística  
+- **Estados Visuais**: Cores saturadas quando ativo, escuro quando inativo
 
-### Sistema de Eventos
-- **Rush Hour**: Aumento automático de spawn em horários específicos
-- **Acidentes Simulados**: Bloqueio temporário de faixas
-- **Veículos de Emergência**: Comportamento especial (futuro)
+## 🧪 Features Avançadas
 
-### Análise com IA
-- **Otimização Automática**: Ajuste de velocidades baseado na congestion
-- **Prevenção de Colisões**: Detecção preditiva de conflitos
-- **Recomendações de Fluxo**: Sugestões para melhorar throughput
+### Sistema de Pedestres Completo
+- **IA de Travessia**: Respeita semáforos com margem de segurança
+- **Modelos Animados**: Humans 3D com animações de caminhada
+- **Pathfinding**: Navegação inteligente evitando carros
+- **4 Spawn Points**: Entradas direcionais com destinos aleatórios
 
-## 🏆 Objetivos de Performance
+### Modos de Câmera Avançados
+```gdscript
+enum CameraMode {
+    ORBITAL,      # Rotação orbital padrão
+    FREE_LOOK,    # Câmera livre com WASD
+    FOLLOW,       # Segue carro aleatório  
+    TOP_DOWN,     # Vista superior fixa
+    CINEMATIC     # Movimento automatizado
+}
+```
 
-- **✅ 60 FPS** consistentes com 100+ carros
-- **✅ Spawn inteligente** com formação realística de filas  
-- **✅ IA comportamental** única por carro
-- **✅ Semáforos sincronizados** com lógica do mundo real
-- **✅ Interface responsiva** com estatísticas em tempo real
+### Sistema de Colisões em Layers
+- **Layer 1**: Cars (detecção veículo-veículo)
+- **Layer 2**: Traffic Lights (detecção de intersecção)
+- **Layer 3**: Pedestrians (detecção pedestre-veículo)
+- **Layer 4**: Environment (limites da cena)
+- **Layer 5**: UI Elements (elementos de interface)
+
+## 🏆 Objetivos Técnicos Alcançados
+
+- **✅ 60 FPS** estáveis com 100+ entidades simultâneas
+- **✅ Física IDM** realística sem teleporte
+- **✅ 4 Personalidades** distintas de IA por motorista  
+- **✅ Sistema de Pedestres** completo e integrado
+- **✅ 5 Modos de Câmera** com transições suaves
+- **✅ Analytics Dashboard** compacto e responsivo
+- **✅ Arquitetura Modular** extensível e organizad
 
 ## 🔧 Desenvolvimento e Extensibilidade
 
-### Adicionando Novos Comportamentos
-1. Estenda `DriverPersonality` em `config.py`
-2. Implemente lógica em `Car._make_driving_decision()`
-3. Ajuste distribuição em `SpawnSystem._choose_personality()`
+### Adicionando Novos Comportamentos de IA
+1. Estenda `DriverPersonality` enum em `Car.gd:line_8`
+2. Configure parâmetros em `personality_configs` dict
+3. Implemente lógica específica em `update_ai_behavior()`
 
-### Criando Novos Tipos de Intersecção
-1. Modifique geometria em `Scene3D._create_scene_geometry()`
-2. Ajuste lógica de semáforos em `TrafficLightSystem`
-3. Configure spawn points em `SpawnSystem._create_spawn_points()`
+### Criando Novos Tipos de Veículos  
+1. Adicione modelos 3D em `assets/vehicles/`
+2. Configure `available_models` em `SpawnSystem.gd:line_45`
+3. Ajuste `car_colors` para novas variações visuais
 
-### Personalizando Renderização
-1. Adicione shaders em `Engine3D._init_shaders()`
-2. Modifique geometria em `utils/math_helpers.py`
-3. Ajuste iluminação em `Scene3D`
+### Modificando Layout da Intersecção
+1. Edite geometria em `Main.gd:create_intersection_geometry()`
+2. Ajuste spawn points em `SpawnSystem._create_spawn_points()`
+3. Reconfigure semáforos em `TrafficManager.gd`
+
+### Personalizando Interface
+1. Modifique `Analytics.gd` para novos widgets
+2. Ajuste `CameraController.gd` para novos modos
+3. Configure `UI.tscn` para layouts personalizados
 
 ## 🐛 Solução de Problemas
 
 ### Performance Baixa
-- Reduza `max_cars_per_batch` em `config.py`
-- Desabilite `enable_frustum_culling` se necessário
-- Diminua `msaa_samples` para 0
+- Reduza `MAX_CARS_PER_DIRECTION` em `SpawnSystem.gd:line_15`
+- Diminua taxas de spawn em `spawn_rates` dict
+- Ajuste qualidade de rendering nas configurações do projeto
 
 ### Carros Não Spawnam
-- Verifique `min_spawn_distance` em configurações
-- Ajuste `base_rate` do spawn system
-- Confirme que semáforos estão funcionando
+- Verifique `MIN_SPAWN_DISTANCE` em `SpawnSystem.gd:line_16`
+- Confirme que `TrafficManager` está registrado no grupo
+- Teste spawn rates individualmente por direção
 
-### Problemas de Renderização
-- Atualize drivers de vídeo
-- Verifique suporte a OpenGL 3.3+
-- Teste com `msaa_samples = 0`
+### Problemas de Física/Colisão
+- Verifique collision layers em Project Settings
+- Confirme que `CharacterBody3D` tem `CollisionShape3D` filho
+- Teste `move_and_slide()` parametros em `Car.gd`
+
+### Semáforos Não Sincronizam
+- Confirme que `TrafficManager` está na cena principal
+- Verifique `CYCLE_TIMES` em `TrafficManager.gd:line_7`
+- Teste método `get_light_state_for_direction()`
+
+## 🚀 Roadmap Futuro
+
+- **🚑 Veículos de Emergência**: Comportamento prioritário
+- **🌧️ Condições Climáticas**: Impacto na IA e visibilidade  
+- **📊 Análises Históricas**: Gráficos e tendências de tráfego
+- **🎵 Audio System**: Sons de motor, freios e ambiente urbano
+- **🌐 Multiplayer**: Simulação colaborativa em tempo real
 
 ## 📝 Licença
 
-Este projeto é desenvolvido para fins educacionais e de demonstração. Baseado em especificações detalhadas e prototipagem anterior.
+Este projeto é desenvolvido para fins educacionais e de demonstração. Implementação avançada de sistemas de tráfego com IA comportamental em Godot Engine.
 
-## 🙏 Agradecimentos
+## 🙏 Agradecimentos  
 
-Baseado no protótipo HTML original que demonstrou a viabilidade dos algoritmos de IA comportamental e sincronização de semáforos implementados nesta versão Python.
+Baseado no protótipo HTML/JavaScript original que validou os algoritmos de IA comportamental. Esta versão Godot 3D representa uma evolução significativa com física IDM, sistema de pedestres e renderização realística.
