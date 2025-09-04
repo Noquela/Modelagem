@@ -60,6 +60,9 @@ func create_modern_dashboard():
 	# Create compact stats overlay (top-left)
 	create_compact_stats_overlay()
 	
+	# Create event queue display (top-center)
+	create_event_queue_display()
+	
 	# Add toggle instruction
 	create_toggle_instruction()
 
@@ -211,11 +214,103 @@ func create_controls_panel():
 	controls_title.add_theme_color_override("font_color", Color.YELLOW)
 	vbox.add_child(controls_title)
 	
-	# Placeholder for future controls
-	var status_label = Label.new()
-	status_label.text = "Status: Running"
-	status_label.add_theme_color_override("font_color", Color.LIME_GREEN)
-	vbox.add_child(status_label)
+	# Controle de taxa de chegada
+	create_arrival_rate_slider(vbox)
+	
+	# Controle de velocidade da simulação
+	create_simulation_speed_slider(vbox)
+	
+	# Botões de controle
+	create_control_buttons(vbox)
+
+func create_arrival_rate_slider(parent: VBoxContainer):
+	"""Cria slider funcional para taxa de chegada"""
+	var label = Label.new()
+	label.text = "🚗 Taxa: 2.5 carros/min"
+	label.name = "ArrivalRateLabel"
+	label.add_theme_color_override("font_color", Color.CYAN)
+	label.add_theme_font_size_override("font_size", 12)
+	parent.add_child(label)
+	
+	var slider = HSlider.new()
+	slider.min_value = 0.5
+	slider.max_value = 8.0
+	slider.step = 0.1
+	slider.value = 2.5
+	slider.value_changed.connect(_on_arrival_rate_changed_functional)
+	parent.add_child(slider)
+
+func create_simulation_speed_slider(parent: VBoxContainer):
+	"""Cria slider funcional para velocidade"""
+	var label = Label.new()
+	label.text = "⚡ Velocidade: 1.0x"
+	label.name = "SpeedLabel"
+	label.add_theme_color_override("font_color", Color.ORANGE)
+	label.add_theme_font_size_override("font_size", 12)
+	parent.add_child(label)
+	
+	var slider = HSlider.new()
+	slider.min_value = 0.1
+	slider.max_value = 5.0
+	slider.step = 0.1
+	slider.value = 1.0
+	slider.value_changed.connect(_on_simulation_speed_changed_functional)
+	parent.add_child(slider)
+
+func create_control_buttons(parent: VBoxContainer):
+	"""Cria botões de controle funcionais"""
+	var hbox = HBoxContainer.new()
+	parent.add_child(hbox)
+	
+	var pause_btn = Button.new()
+	pause_btn.text = "⏸️ Pause"
+	pause_btn.pressed.connect(_on_pause_pressed_functional)
+	hbox.add_child(pause_btn)
+	
+	var reset_btn = Button.new()
+	reset_btn.text = "🔄 Reset"
+	reset_btn.pressed.connect(_on_reset_pressed_functional)
+	hbox.add_child(reset_btn)
+
+# Callbacks funcionais dos controles
+func _on_arrival_rate_changed_functional(value: float):
+	print("📈 Alterando taxa de chegada para: %.1f carros/min" % value)
+	
+	# Atualizar label
+	var label = get_node_or_null("ControlsPanel/VBoxContainer/ArrivalRateLabel")
+	if label:
+		label.text = "🚗 Taxa: %.1f carros/min" % value
+	
+	# Aplicar mudança ao SpawnSystem via SimuladorTrafego
+	var simulador = get_parent().get_node_or_null("SimuladorTrafego")
+	if simulador:
+		simulador.alterar_taxa_chegada(value)
+
+func _on_simulation_speed_changed_functional(value: float):
+	print("⚡ Alterando velocidade da simulação para: %.1fx" % value)
+	
+	# Atualizar label
+	var label = get_node_or_null("ControlsPanel/VBoxContainer/SpeedLabel")
+	if label:
+		label.text = "⚡ Velocidade: %.1fx" % value
+	
+	# Aplicar mudança ao GerenciadorEventos
+	var simulador = get_parent().get_node_or_null("SimuladorTrafego")
+	if simulador and simulador.gerenciador_eventos:
+		simulador.gerenciador_eventos.velocidade_simulacao = value
+
+func _on_pause_pressed_functional():
+	print("⏸️ Pausando/Retomando simulação")
+	var simulador = get_parent().get_node_or_null("SimuladorTrafego")
+	if simulador and simulador.gerenciador_eventos:
+		if simulador.gerenciador_eventos.simulacao_pausada:
+			simulador.gerenciador_eventos.continuar_simulacao()
+		else:
+			simulador.gerenciador_eventos.pausar_simulacao()
+
+func _on_reset_pressed_functional():
+	print("🔄 Reiniciando simulação")
+	get_tree().reload_current_scene()
 
 func create_charts_area():
 	var charts = create_styled_panel(Color(0.08, 0.08, 0.1, 0.9))
@@ -430,25 +525,79 @@ func update_discrete_event_stats(simulador: SimuladorTrafego):
 	
 	# Atualizar labels com dados de eventos discretos
 	if fps_label:
-		fps_label.text = "Simulation Time: %.1f min" % (gerenciador.tempo_simulacao / 60.0)
+		fps_label.text = "⏰ Tempo Simulação: %.1f min" % (gerenciador.tempo_simulacao / 60.0)
 	
 	if cars_label:
-		cars_label.text = "Cars in System: %d" % simulador.ambiente.obter_quantidade_carros_ativos()
+		# Buscar carros ativos na cena
+		var active_cars = get_tree().get_nodes_in_group("cars").size()
+		cars_label.text = "🚗 Carros Ativos: %d" % active_cars
 	
 	if throughput_label:
 		var throughput = 0.0
 		if gerenciador.tempo_simulacao > 0:
 			throughput = stats.carros_atendidos / (gerenciador.tempo_simulacao / 60.0)
-		throughput_label.text = "Throughput: %.1f cars/min" % throughput
+		throughput_label.text = "📈 Throughput: %.1f carros/min" % throughput
 	
 	if time_label:
-		time_label.text = "Events Processed: %d" % (stats.carros_chegados + stats.carros_atendidos)
+		time_label.text = "🎯 Eventos Processados: %d" % gerenciador.eventos_processados
 	
 	if avg_wait_label:
-		avg_wait_label.text = "Avg Wait Time: %.1f s" % stats.tempo_espera_medio
+		avg_wait_label.text = "⏱️ Tempo Espera Médio: %.1fs" % stats.tempo_espera_medio
 	
 	if total_spawned_label:
-		total_spawned_label.text = "Total Spawned: %d" % stats.carros_chegados
+		total_spawned_label.text = "🚀 Total Spawned: %d" % stats.carros_chegados
+	
+	# Estatísticas adicionais de eventos discretos
+	update_additional_discrete_stats(simulador)
+
+func update_additional_discrete_stats(simulador):
+	"""Atualiza estatísticas adicionais específicas de eventos discretos"""
+	var stats_container = get_node_or_null("StatsOverlay/VBoxContainer")
+	if not stats_container:
+		return
+		
+	# Remover estatísticas antigas específicas de DES
+	var old_des_stats = stats_container.get_node_or_null("DESStats")
+	if old_des_stats:
+		old_des_stats.queue_free()
+	
+	# Criar nova seção de estatísticas DES
+	var des_stats = VBoxContainer.new()
+	des_stats.name = "DESStats"
+	stats_container.add_child(des_stats)
+	
+	# Separador
+	var separator = HSeparator.new()
+	des_stats.add_child(separator)
+	
+	# Título
+	var title = Label.new()
+	title.text = "📊 ESTATÍSTICAS DES"
+	title.add_theme_color_override("font_color", Color.YELLOW)
+	title.add_theme_font_size_override("font_size", 12)
+	des_stats.add_child(title)
+	
+	# Fila de eventos
+	var queue_size_label = Label.new()
+	queue_size_label.text = "📋 Eventos na Fila: %d" % simulador.gerenciador_eventos.fila_eventos.size()
+	queue_size_label.add_theme_color_override("font_color", Color.CYAN)
+	queue_size_label.add_theme_font_size_override("font_size", 10)
+	des_stats.add_child(queue_size_label)
+	
+	# Estado do semáforo
+	var semaforo_label = Label.new()
+	var semaforo_state = "🟢 VERDE" if simulador.semaforo_verde else "🔴 VERMELHO"
+	semaforo_label.text = "🚦 Semáforo: %s" % semaforo_state
+	semaforo_label.add_theme_color_override("font_color", Color.GREEN if simulador.semaforo_verde else Color.RED)
+	semaforo_label.add_theme_font_size_override("font_size", 10)
+	des_stats.add_child(semaforo_label)
+	
+	# Tamanho da fila de carros
+	var fila_label = Label.new()
+	fila_label.text = "🚗 Carros na Fila: %d (Max: %d)" % [simulador.estatisticas.carros_na_fila, simulador.estatisticas.tamanho_fila_max]
+	fila_label.add_theme_color_override("font_color", Color.ORANGE)
+	fila_label.add_theme_font_size_override("font_size", 10)
+	des_stats.add_child(fila_label)
 	
 	if cars_passed_label:
 		cars_passed_label.text = "Cars Passed: %d" % stats.carros_atendidos
@@ -534,8 +683,63 @@ func _on_update_timer_timeout():
 	
 	if simulador:
 		update_discrete_event_stats(simulador)
+		update_event_queue_display(simulador)  # NOVA: Atualizar fila de eventos
 	
 	update_personality_display()
+
+func update_event_queue_display(simulador):
+	"""Atualiza display da fila de eventos em tempo real"""
+	var events_panel = get_node_or_null("EventQueuePanel")
+	if not events_panel:
+		return
+		
+	# Atualizar tempo atual
+	var time_label = events_panel.get_node_or_null("VBoxContainer/SimulationTime")
+	if time_label and simulador.gerenciador_eventos:
+		time_label.text = "⏰ Tempo: %.1fs" % simulador.gerenciador_eventos.tempo_simulacao
+	
+	# Atualizar lista de eventos
+	var events_list = events_panel.get_node_or_null("VBoxContainer/ScrollContainer/EventsList")
+	if events_list and simulador.gerenciador_eventos:
+		# Limpar lista anterior
+		for child in events_list.get_children():
+			child.queue_free()
+		
+		# Mostrar próximos 5 eventos
+		var fila = simulador.gerenciador_eventos.fila_eventos
+		for i in range(min(5, fila.size())):
+			var evento = fila[i]
+			var evento_label = Label.new()
+			evento_label.text = "%.1fs - %s" % [evento.tempo, get_event_type_name(evento.tipo)]
+			evento_label.add_theme_color_override("font_color", get_event_color(evento.tipo))
+			evento_label.add_theme_font_size_override("font_size", 10)
+			events_list.add_child(evento_label)
+		
+		if fila.is_empty():
+			var empty_label = Label.new()
+			empty_label.text = "⭕ Nenhum evento agendado"
+			empty_label.add_theme_color_override("font_color", Color.GRAY)
+			events_list.add_child(empty_label)
+
+func get_event_type_name(tipo) -> String:
+	"""Converte tipo de evento para nome legível"""
+	match tipo:
+		0: return "🚗 Chegada Carro"
+		1: return "🚦 Carro no Semáforo"  
+		2: return "🔄 Mudança Semáforo"
+		3: return "🏁 Saída Carro"
+		4: return "📊 Atualizar Stats"
+		_: return "❓ Evento Desconhecido"
+
+func get_event_color(tipo) -> Color:
+	"""Cor por tipo de evento"""
+	match tipo:
+		0: return Color.CYAN      # Chegada
+		1: return Color.ORANGE    # Semáforo
+		2: return Color.RED       # Mudança
+		3: return Color.GREEN     # Saída
+		4: return Color.YELLOW    # Stats
+		_: return Color.WHITE
 
 func _input(event):
 	"""Processar input para toggle UI"""
@@ -545,5 +749,75 @@ func _input(event):
 func toggle_ui_visibility():
 	ui_visible = !ui_visible
 	visible = ui_visible
+
+func create_event_queue_display():
+	"""Cria painel para mostrar fila de eventos em tempo real"""
+	var event_panel = create_styled_panel(Color(0.08, 0.05, 0.08, 0.9))
+	event_panel.name = "EventQueuePanel"
+	event_panel.position = Vector2(380, 10)  # Ao lado do stats
+	event_panel.size = Vector2(400, 300)
+	add_child(event_panel)
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, 5)  # 5px margin
+	event_panel.add_child(vbox)
+	
+	# Título
+	var title = Label.new()
+	title.text = "📋 FILA DE EVENTOS DISCRETOS"
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", Color.YELLOW)
+	vbox.add_child(title)
+	
+	# Separador
+	vbox.add_child(HSeparator.new())
+	
+	# Tempo atual da simulação
+	var time_label = Label.new()
+	time_label.name = "SimulationTime"
+	time_label.text = "⏰ Tempo: 0.0s"
+	time_label.add_theme_color_override("font_color", Color.CYAN)
+	vbox.add_child(time_label)
+	
+	# Próximos eventos
+	var events_label = Label.new()
+	events_label.text = "🎯 PRÓXIMOS EVENTOS:"
+	events_label.add_theme_color_override("font_color", Color.GREEN)
+	vbox.add_child(events_label)
+	
+	# Container para lista de eventos
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 200)
+	vbox.add_child(scroll)
+	
+	var events_list = VBoxContainer.new()
+	events_list.name = "EventsList"
+	scroll.add_child(events_list)
+
+func create_discrete_event_stats():
+	"""Cria seção de estatísticas de eventos discretos"""
+	var stats_panel = create_styled_panel(Color(0.05, 0.08, 0.05, 0.9))
+	stats_panel.name = "DiscreteStatsPanel"
+	stats_panel.position = Vector2(800, 10)
+	stats_panel.size = Vector2(300, 250)
+	add_child(stats_panel)
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, 5)
+	stats_panel.add_child(vbox)
+	
+	# Título
+	var title = Label.new()
+	title.text = "📊 ESTATÍSTICAS DES"
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", Color.GREEN)
+	vbox.add_child(title)
+	
+	vbox.add_child(HSeparator.new())
+	
+	# Estatísticas principais
+	var stats_container = VBoxContainer.new()
+	stats_container.name = "StatsContainer"
+	vbox.add_child(stats_container)
 
 # FUNÇÕES DUPLICADAS REMOVIDAS - versão original mantida acima

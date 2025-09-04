@@ -50,17 +50,19 @@ func iniciar_simulacao():
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	# SpawnSystem agendará os eventos de chegada automaticamente
-	# Apenas agendar eventos de semáforo e estatísticas
+	# FORÇAR PRIMEIRO SPAWN - garantir que sistema inicie
+	gerenciador_eventos.agendar_evento(5.0, GerenciadorEventos.TipoEvento.CHEGADA_CARRO)
+	print("🚗 Primeiro spawn agendado para t=5.0s")
 	
 	# Agendar primeira mudança de semáforo
 	gerenciador_eventos.agendar_evento(configuracao.tempo_semaforo_verde, GerenciadorEventos.TipoEvento.MUDANCA_SEMAFORO)
 	
 	# Agendar primeira atualização de estatísticas
-	gerenciador_eventos.agendar_evento(60.0, GerenciadorEventos.TipoEvento.ATUALIZAR_ESTATISTICAS)
+	gerenciador_eventos.agendar_evento(10.0, GerenciadorEventos.TipoEvento.ATUALIZAR_ESTATISTICAS)
 	
 	# Iniciar execução
 	gerenciador_eventos.executar_simulacao()
+	print("🎬 Simulação iniciada - eventos agendados!")
 
 func processar_chegada_carro_basico():
 	"""Fallback caso SpawnSystem não funcione"""

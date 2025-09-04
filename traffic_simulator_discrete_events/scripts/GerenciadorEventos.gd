@@ -7,6 +7,7 @@ var fila_eventos: Array = []
 var tempo_simulacao: float = 0.0
 var velocidade_simulacao: float = 1.0
 var simulacao_pausada: bool = false
+var eventos_processados: int = 0  # Contador para estatísticas
 
 # Tipos de eventos em português
 enum TipoEvento {
@@ -82,6 +83,9 @@ func processar_proximo_evento():
 			processar_saida_carro(evento.dados)
 		TipoEvento.ATUALIZAR_ESTATISTICAS:
 			processar_estatisticas(evento.dados)
+	
+	# Incrementar contador de eventos processados
+	eventos_processados += 1
 	
 	# Notificar que evento foi processado
 	evento_processado.emit(evento)
