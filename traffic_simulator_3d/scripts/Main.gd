@@ -12,7 +12,7 @@ func _ready():
 	# Initialization print removed for performance
 	setup_environment()
 	setup_traffic_lights()
-	setup_pedestrian_system()
+	# setup_pedestrian_system()  # DISABLED - implementar pedestres depois
 	connect_signals()
 	
 	# Aguardar alguns frames antes de inicializar sistemas complexos
@@ -21,7 +21,7 @@ func _ready():
 
 func _process(_delta):
 	# Atualizar semáforos de pedestres
-	update_pedestrian_signals()
+	# update_pedestrian_signals()  # DISABLED - implementar pedestres depois
 
 func _input(event):
 	if event.is_action_pressed("ui_pause"):
@@ -501,7 +501,7 @@ func create_crosswalks():
 	print("Real crosswalks created - perpendicular to sidewalks, no intersection overlap!")
 	
 	# Criar semáforos de pedestres após as faixas
-	create_pedestrian_signals()
+	# create_pedestrian_signals()  # DISABLED - implementar pedestres depois
 
 func create_real_zebra_crossing(center_pos: Vector3, road_width: float, crosswalk_width: float, orientation: String, crosswalk_name: String):
 	# FAIXAS DE PEDESTRES REAIS - LISTRAS PERPENDICULARES ÀS CALÇADAS
@@ -950,12 +950,11 @@ func create_dotted_crosswalk(center_pos: Vector3, direction: Vector3, road_width
 			add_child(dot)
 
 func setup_pedestrian_system():
-	# Criar sistema de spawn de pedestres
-	var pedestrian_spawn_system = preload("res://scripts/PedestrianSpawnSystem.gd").new()
-	pedestrian_spawn_system.name = "PedestrianSpawnSystem"
-	add_child(pedestrian_spawn_system)
-	
-	print("Pedestrian system initialized")
+	# Sistema de pedestres DISABLED - implementar depois
+	print("⚠️ Sistema de pedestres desabilitado temporariamente")
+	# var pedestrian_spawn_system = preload("res://scripts/PedestrianSpawnSystem.gd").new()
+	# pedestrian_spawn_system.name = "PedestrianSpawnSystem"  
+	# add_child(pedestrian_spawn_system)
 
 func setup_traffic_lights():
 	# APENAS 3 SEMÁFOROS com POSIÇÕES EXATAS DO HTML:

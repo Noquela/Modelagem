@@ -90,8 +90,8 @@ func update_traffic_lights():
 		main_road_state = "red"
 		cross_road_state = "red"
 	
-	# 🚶 SEMÁFOROS DE PEDESTRES com margem de segurança de 2s
-	update_pedestrian_lights(phase)
+	# 🚶 SEMÁFOROS DE PEDESTRES DISABLED - implementar depois
+	# update_pedestrian_lights(phase)
 	
 	# Debug dos estados dos semáforos - PERFORMANCE: less frequent
 	if fmod(simulation_time, 10.0) < 0.1:  # A cada 10 segundos (was 3s)
@@ -203,8 +203,8 @@ func get_current_stats() -> Dictionary:
 		"congestion": analytics_data.congestion_level,
 		"main_road_state": main_road_state,
 		"cross_road_state": cross_road_state,
-		"pedestrian_main_state": pedestrian_main_state,
-		"pedestrian_cross_state": pedestrian_cross_state,
+		# "pedestrian_main_state": pedestrian_main_state,   # DISABLED
+		# "pedestrian_cross_state": pedestrian_cross_state, # DISABLED
 		"cycle_time": fmod(Time.get_unix_time_from_system() - cycle_start_time, CYCLE_TIMES.total_cycle)
 	}
 
