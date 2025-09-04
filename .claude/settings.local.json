@@ -28,7 +28,12 @@
       "Bash(then cp temp_cameracontroller.gd traffic_simulator_3d/scripts/CameraController.gd)",
       "Bash(if [ -f temp_trafficlight.gd ])",
       "Bash(then cp temp_trafficlight.gd traffic_simulator_3d/scripts/TrafficLight.gd)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(xcopy:*)",
+      "Bash(robocopy:*)",
+      "Bash(dir:*)",
+      "Bash(rsync:*)"
     ],
     "deny": [],
     "ask": []

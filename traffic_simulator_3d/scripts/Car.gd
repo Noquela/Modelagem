@@ -250,19 +250,12 @@ func update_car_materials(node: Node3D, color: Color):
 			update_car_materials(child, color)
 
 func create_3d_car_model() -> void:
-	# Load 3D car models randomly from Kenney Car Kit
+	# Load only 4 optimized car models for low-end hardware
 	var car_models = [
 		"res://assets/vehicles/sedan.glb",
 		"res://assets/vehicles/hatchback-sports.glb", 
 		"res://assets/vehicles/suv.glb",
-		"res://assets/vehicles/Models/GLB format/sedan.glb",
-		"res://assets/vehicles/Models/GLB format/hatchback-sports.glb",
-		"res://assets/vehicles/Models/GLB format/suv.glb",
-		"res://assets/vehicles/Models/GLB format/sedan-sports.glb",
-		"res://assets/vehicles/Models/GLB format/suv-luxury.glb",
-		"res://assets/vehicles/Models/GLB format/police.glb",
-		"res://assets/vehicles/Models/GLB format/taxi.glb",
-		"res://assets/vehicles/Models/GLB format/van.glb"
+		"res://assets/vehicles/police.glb"
 	]
 	
 	# Choose random model
@@ -272,27 +265,16 @@ func create_3d_car_model() -> void:
 	if car_scene and car_scene.can_instantiate():
 		var car_model = car_scene.instantiate()
 		car_model.name = "CarModel"
-		# Scale MENOR para evitar sobreposições visuais
-		car_model.scale = Vector3(0.6, 0.6, 0.6)  # REDUZIDO de 0.8 para 0.6
+		# Scale MUITO MENOR para performance
+		car_model.scale = Vector3(0.4, 0.4, 0.4)  # REDUZIDO ainda mais
 		car_model.position = Vector3(0, -0.3, 0)
-		
-		# NOTE: Model orientation will be handled by the main car rotation
-		# Models should face forward along -Z by default, car rotation handles final direction
 		
 		add_child(car_model)
 		
-		# Debug info
-		if car_id % 10 == 0:
-			pass  # Debug print removed for performance
-		
-		# Apply color after model is added to scene tree - with retry
+		# Aplicar cor mais simples
 		call_deferred("apply_random_color_to_car", car_model)
-		# Double safety - apply again after a short delay
-		get_tree().create_timer(0.1).timeout.connect(func(): apply_random_color_to_car(car_model))
 	else:
-		# Fallback to simple box mesh if models don't load
-		if car_id % 5 == 0:  # Log fallback more frequently to debug
-			pass  # Debug print removed for performance
+		# Fallback mais provável para hardware fraco
 		create_fallback_car_mesh()
 
 func set_spawn_position():
@@ -321,10 +303,10 @@ func set_spawn_position():
 			rotationY = PI  # INVERTIDO: rotacionar 180° para apontar para -Z (NORTE)
 			
 		Direction.BOTTOM_TO_TOP:
-			# Spawn do NORTE - antes do início da rua
+			# Spawn do SUL - antes do início da rua (corrigido)
 			startX = 1.5    # Faixa esquerda (lado leste da rua)
-			startZ = -35.0  # SPAWN NORTE
-			rotationY = 0   # INVERTIDO: não rotacionar para apontar para +Z (SUL)
+			startZ = 35.0   # SPAWN SUL (corrigido)
+			rotationY = PI  # CORRIGIDO: rotacionar 180° para apontar para -Z (NORTE)
 	
 	global_position = Vector3(startX, 0.5, startZ)
 	rotation.y = rotationY

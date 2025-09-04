@@ -12,7 +12,6 @@ func _ready():
 	# Initialization print removed for performance
 	setup_environment()
 	setup_traffic_lights()
-	# setup_pedestrian_system()  # DISABLED - implementar pedestres depois
 	connect_signals()
 	
 	# Aguardar alguns frames antes de inicializar sistemas complexos
@@ -20,8 +19,7 @@ func _ready():
 	await get_tree().process_frame
 
 func _process(_delta):
-	# Atualizar semáforos de pedestres
-	# update_pedestrian_signals()  # DISABLED - implementar pedestres depois
+	pass
 
 func _input(event):
 	if event.is_action_pressed("ui_pause"):
@@ -108,31 +106,16 @@ func create_road_segment(start: Vector3, end: Vector3, width: float) -> Node3D:
 	# Position road at center
 	road.position = (start + end) / 2
 	
-	# Add realistic asphalt material with PBR textures
+	# MATERIAL SIMPLES PARA PERFORMANCE
 	var material = StandardMaterial3D.new()
 	
-	# Try to load high-quality asphalt textures
+	# Tentar carregar textura básica (sem normal maps nem roughness)
 	var diffuse_texture = load("res://assets/textures/roads/asphalt_02_diff_2k.jpg")
-	var normal_texture = load("res://assets/textures/roads/asphalt_02_nor_gl_2k.jpg")  
-	var roughness_texture = load("res://assets/textures/roads/asphalt_02_rough_2k.jpg")
-	
-	# Texture loading print removed for performance
 	
 	if diffuse_texture:
 		material.albedo_texture = diffuse_texture
 		material.albedo_color = Color.WHITE
-		# Texture success print removed for performance
-		
-		if normal_texture:
-			material.normal_texture = normal_texture
-			material.normal_enabled = true
-			# Normal map success print removed
-		
-		if roughness_texture:
-			material.roughness_texture = roughness_texture
-			# Roughness map success print removed
-		else:
-			material.roughness = 0.8
+		material.roughness = 0.8  # Valor fixo, sem textura
 		
 		# UV scaling baseado no tamanho real da textura (3m x 3m)
 		# Ruas: Principal=10m largura, Transversal=6m largura  
@@ -144,17 +127,14 @@ func create_road_segment(start: Vector3, end: Vector3, width: float) -> Node3D:
 		else:  # North-South road (vertical)
 			var road_length = (end - start).length()  # 80m total  
 			material.uv1_scale = Vector3(width/3.0, road_length/3.0, 1.0)  # ~2x27 para rua transversal
-			
-		# UV scaling print removed for performance
-		
 	else:
-		material.albedo_color = Color(0.25, 0.25, 0.28)  # Lighter fallback
+		# Fallback para cor sólida se textura não carregar
+		material.albedo_color = Color(0.25, 0.25, 0.28)  # Cinza asfalto
 		material.roughness = 0.8
-		print("⚠️ Using fallback asphalt color")
 	
 	# Make sure road is visible
 	material.metallic = 0.0
-	material.emission_enabled = false
+	material.emission = Color.BLACK
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Show both sides
 	mesh_instance.material_override = material
@@ -349,16 +329,16 @@ func create_lane_markings():
 	create_crosswalks()
 
 func setup_lighting():
-	# SISTEMA DE ILUMINAÇÃO URBANA REALISTA
+	# ILUMINAÇÃO OTIMIZADA PARA HARDWARE FRACO
 	
-	# Sol principal (luz direcional)
+	# Sol principal (luz direcional) - SEM SOMBRAS
 	var sun = DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.position = Vector3(20, 25, 15)
 	sun.rotation_degrees = Vector3(-35, -45, 0)  # Ângulo mais natural
-	sun.light_energy = 1.2
+	sun.light_energy = 1.5  # Mais energia para compensar falta de sombras
 	sun.light_color = Color(1.0, 0.95, 0.8)  # Luz solar levemente amarelada
-	sun.shadow_enabled = true  # Sombras realistas
+	sun.shadow_enabled = false  # DESABILITADO para performance
 	add_child(sun)
 	
 	# Luz ambiente suave
@@ -387,13 +367,8 @@ func setup_lighting():
 	env.ambient_light_energy = 0.2
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	
-	# Fog urbano sutil para profundidade
-	env.fog_enabled = true
-	env.fog_light_color = Color(0.8, 0.9, 1.0)
-	env.fog_light_energy = 0.5
-	env.fog_sun_scatter = 0.1
-	env.fog_density = 0.001  # Fog muito leve
-	env.fog_aerial_perspective = 0.1
+	# FOG DESABILITADO para performance
+	env.fog_enabled = false
 	
 	# Aplicar ambiente
 	get_viewport().get_camera_3d().environment = env
@@ -500,8 +475,6 @@ func create_crosswalks():
 	
 	print("Real crosswalks created - perpendicular to sidewalks, no intersection overlap!")
 	
-	# Criar semáforos de pedestres após as faixas
-	# create_pedestrian_signals()  # DISABLED - implementar pedestres depois
 
 func create_real_zebra_crossing(center_pos: Vector3, road_width: float, crosswalk_width: float, orientation: String, crosswalk_name: String):
 	# FAIXAS DE PEDESTRES REAIS - LISTRAS PERPENDICULARES ÀS CALÇADAS
@@ -555,370 +528,13 @@ func create_real_zebra_crossing(center_pos: Vector3, road_width: float, crosswal
 	
 	print("Real zebra crossing '" + crosswalk_name + "' created with " + str(stripe_count) + " stripes!")
 
-func create_pedestrian_signals():
-	# 🚶 CRIAR SEMÁFOROS PARA PEDESTRES EM CADA FAIXA
-	print("🚶 Creating pedestrian traffic signals...")
-	
-	# POSIÇÕES BASEADAS NAS FAIXAS DE PEDESTRES COM ROTAÇÕES MANUAIS CORRETAS
-	# North crosswalk: Vector3(-5.0, 0.05, 0) - atravessa rua principal (West-East)
-	create_pedestrian_signal_pair(
-		Vector3(-5.0, 0, -6.0),  # Lado sul da faixa norte - olha NORTE (para faixa)
-		Vector3(-5.0, 0, 6.0),   # Lado norte da faixa norte - olha SUL (para faixa)  
-		"main",                  # Controla travessia da rua principal
-		"North_Crosswalk",
-		0.0,                     # Sul olha norte (0°)
-		180.0                    # Norte olha sul (180°)
-	)
-	
-	# South crosswalk: Vector3(5.0, 0.05, 0) - atravessa rua principal (West-East)
-	create_pedestrian_signal_pair(
-		Vector3(5.0, 0, -6.0),   # Lado sul da faixa sul - olha NORTE (para faixa)
-		Vector3(5.0, 0, 6.0),    # Lado norte da faixa sul - olha SUL (para faixa)
-		"main",                  # Controla travessia da rua principal  
-		"South_Crosswalk",
-		0.0,                     # Sul olha norte (0°)
-		180.0                    # Norte olha sul (180°)
-	)
-	
-	# West crosswalk: Vector3(0, 0.05, -7.0) - atravessa rua transversal (North-South)
-	create_pedestrian_signal_pair(
-		Vector3(-4.0, 0, -7.0),  # Lado oeste da faixa oeste - olha LESTE (para faixa)
-		Vector3(4.0, 0, -7.0),   # Lado leste da faixa oeste - olha OESTE (para faixa)
-		"cross",                 # Controla travessia da rua transversal
-		"West_Crosswalk",
-		90.0,                    # Oeste olha leste (90°)
-		-90.0                    # Leste olha oeste (-90°)
-	)
-	
-	# East crosswalk: Vector3(0, 0.05, 7.0) - atravessa rua transversal (North-South)
-	create_pedestrian_signal_pair(
-		Vector3(-4.0, 0, 7.0),   # Lado oeste da faixa leste - olha LESTE (para faixa)
-		Vector3(4.0, 0, 7.0),    # Lado leste da faixa leste - olha OESTE (para faixa)
-		"cross",                 # Controla travessia da rua transversal
-		"East_Crosswalk",
-		90.0,                    # Oeste olha leste (90°)
-		-90.0                    # Leste olha oeste (-90°)
-	)
-	
-	print("✅ Pedestrian signals created for all crosswalks with correct orientations!")
 
-func create_pedestrian_signal_pair(pos1: Vector3, pos2: Vector3, signal_type: String, crosswalk_name: String, rotation1: float, rotation2: float):
-	# Criar par de semáforos (um de cada lado da faixa) com rotações corretas
-	var signal1 = create_single_pedestrian_signal(pos1, signal_type, crosswalk_name + "_A", rotation1)
-	var signal2 = create_single_pedestrian_signal(pos2, signal_type, crosswalk_name + "_B", rotation2)
-	
-	add_child(signal1)
-	add_child(signal2)
 
-func create_single_pedestrian_signal(pos: Vector3, signal_type: String, signal_name: String, rotation_deg: float) -> Node3D:
-	# Criar um semáforo de pedestre individual
-	var signal_node = Node3D.new()
-	signal_node.name = "PedestrianSignal_" + signal_name
-	signal_node.position = pos
-	signal_node.add_to_group("pedestrian_signals")
-	
-	# Definir rotação MANUAL para apontar para a faixa correta
-	signal_node.rotation_degrees.y = rotation_deg
-	
-	# Poste do semáforo (cilindro cinza)
-	var pole = MeshInstance3D.new()
-	var pole_mesh = CylinderMesh.new()
-	pole_mesh.height = 3.0
-	pole_mesh.top_radius = 0.1
-	pole_mesh.bottom_radius = 0.1
-	pole.mesh = pole_mesh
-	pole.position = Vector3(0, 1.5, 0)  # Metade da altura
-	
-	var pole_material = StandardMaterial3D.new()
-	pole_material.albedo_color = Color(0.4, 0.4, 0.4)
-	pole.material_override = pole_material
-	pole.name = "Pole"
-	signal_node.add_child(pole)
-	
-	# Caixa do semáforo (retângulo preto) - mais para frente
-	var signal_box = MeshInstance3D.new()
-	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(0.3, 0.6, 0.15)
-	signal_box.mesh = box_mesh
-	signal_box.position = Vector3(0, 2.7, 0)  # No topo do poste
-	
-	var box_material = StandardMaterial3D.new()
-	box_material.albedo_color = Color(0.2, 0.2, 0.2)
-	signal_box.material_override = box_material
-	signal_box.name = "SignalBox"
-	signal_node.add_child(signal_box)
-	
-	# Símbolo VERMELHO (boneco parado) - Retângulo com fundo vermelho
-	var red_symbol = MeshInstance3D.new()
-	var red_mesh = BoxMesh.new()
-	red_mesh.size = Vector3(0.15, 0.15, 0.02)  # Formato retangular como display
-	red_symbol.mesh = red_mesh
-	red_symbol.position = Vector3(0, 2.85, 0.13)  # Mais para frente
-	
-	var red_material = StandardMaterial3D.new()
-	red_material.albedo_color = Color(0.3, 0.05, 0.05)  # Vermelho escuro (apagado inicialmente)
-	red_material.emission_enabled = true
-	red_material.emission = Color.RED * 3.0  # Bem brilhante para mostrar símbolo
-	red_material.metallic = 0.0
-	red_material.roughness = 0.1
-	red_symbol.material_override = red_material
-	red_symbol.name = "RedLight"
-	signal_node.add_child(red_symbol)
-	
-	# Boneco parado (pequenos cubos para formar figura)
-	create_pedestrian_stop_symbol(signal_node, Vector3(0, 2.85, 0.14))
-	
-	# Símbolo VERDE (boneco andando) - Retângulo com fundo verde
-	var green_symbol = MeshInstance3D.new()
-	var green_mesh = BoxMesh.new()
-	green_mesh.size = Vector3(0.15, 0.15, 0.02)  # Formato retangular como display
-	green_symbol.mesh = green_mesh
-	green_symbol.position = Vector3(0, 2.55, 0.13)  # Mais para frente
-	
-	var green_material = StandardMaterial3D.new()
-	green_material.albedo_color = Color(0.05, 0.3, 0.05)  # Verde escuro (apagado inicialmente) 
-	green_material.emission_enabled = false  # Começa apagado
-	green_material.emission = Color.BLACK
-	green_material.metallic = 0.0
-	green_material.roughness = 0.8  # Mais fosco quando apagado
-	green_symbol.material_override = green_material
-	green_symbol.name = "GreenLight"
-	signal_node.add_child(green_symbol)
-	
-	# Boneco andando (pequenos cubos para formar figura)
-	create_pedestrian_walk_symbol(signal_node, Vector3(0, 2.55, 0.14))
-	
-	# Adicionar script ou dados para controle
-	signal_node.set_meta("signal_type", signal_type)  # "main" ou "cross"
-	signal_node.set_meta("current_state", "dont_walk")  # Estado inicial
-	
-	return signal_node
 
-func create_pedestrian_stop_symbol(parent: Node3D, base_pos: Vector3):
-	# Criar símbolo de boneco PARADO (braços abertos, pernas juntas)
-	var symbol_group = Node3D.new()
-	symbol_group.name = "StopSymbol"
-	symbol_group.position = base_pos
-	
-	var white_material = StandardMaterial3D.new()
-	white_material.albedo_color = Color.WHITE
-	white_material.emission_enabled = true
-	white_material.emission = Color.WHITE * 0.8
-	
-	# Cabeça
-	var head = MeshInstance3D.new()
-	head.mesh = SphereMesh.new()
-	head.mesh.radius = 0.015
-	head.position = Vector3(0, 0.04, 0)
-	head.material_override = white_material
-	symbol_group.add_child(head)
-	
-	# Corpo
-	var body = MeshInstance3D.new()
-	body.mesh = BoxMesh.new()
-	body.mesh.size = Vector3(0.008, 0.04, 0.008)
-	body.position = Vector3(0, 0.01, 0)
-	body.material_override = white_material
-	symbol_group.add_child(body)
-	
-	# Braços abertos (parado)
-	var left_arm = MeshInstance3D.new()
-	left_arm.mesh = BoxMesh.new()
-	left_arm.mesh.size = Vector3(0.025, 0.006, 0.006)
-	left_arm.position = Vector3(-0.02, 0.02, 0)
-	left_arm.material_override = white_material
-	symbol_group.add_child(left_arm)
-	
-	var right_arm = MeshInstance3D.new()
-	right_arm.mesh = BoxMesh.new()
-	right_arm.mesh.size = Vector3(0.025, 0.006, 0.006)
-	right_arm.position = Vector3(0.02, 0.02, 0)
-	right_arm.material_override = white_material
-	symbol_group.add_child(right_arm)
-	
-	# Pernas juntas (parado)
-	var legs = MeshInstance3D.new()
-	legs.mesh = BoxMesh.new()
-	legs.mesh.size = Vector3(0.012, 0.03, 0.008)
-	legs.position = Vector3(0, -0.02, 0)
-	legs.material_override = white_material
-	symbol_group.add_child(legs)
-	
-	parent.add_child(symbol_group)
 
-func create_pedestrian_walk_symbol(parent: Node3D, base_pos: Vector3):
-	# Criar símbolo de boneco ANDANDO (braços e pernas em movimento)
-	var symbol_group = Node3D.new()
-	symbol_group.name = "WalkSymbol"
-	symbol_group.position = base_pos
-	
-	var white_material = StandardMaterial3D.new()
-	white_material.albedo_color = Color.WHITE
-	white_material.emission_enabled = true
-	white_material.emission = Color.WHITE * 0.8
-	
-	# Cabeça
-	var head = MeshInstance3D.new()
-	head.mesh = SphereMesh.new()
-	head.mesh.radius = 0.015
-	head.position = Vector3(0, 0.04, 0)
-	head.material_override = white_material
-	symbol_group.add_child(head)
-	
-	# Corpo
-	var body = MeshInstance3D.new()
-	body.mesh = BoxMesh.new()
-	body.mesh.size = Vector3(0.008, 0.04, 0.008)
-	body.position = Vector3(0, 0.01, 0)
-	body.material_override = white_material
-	symbol_group.add_child(body)
-	
-	# Braços em movimento (andando)
-	var left_arm = MeshInstance3D.new()
-	left_arm.mesh = BoxMesh.new()
-	left_arm.mesh.size = Vector3(0.006, 0.025, 0.006)
-	left_arm.position = Vector3(-0.01, 0.015, 0)
-	left_arm.rotation_degrees = Vector3(0, 0, -15)  # Ligeiramente inclinado
-	left_arm.material_override = white_material
-	symbol_group.add_child(left_arm)
-	
-	var right_arm = MeshInstance3D.new()
-	right_arm.mesh = BoxMesh.new()
-	right_arm.mesh.size = Vector3(0.006, 0.025, 0.006)
-	right_arm.position = Vector3(0.01, 0.015, 0)
-	right_arm.rotation_degrees = Vector3(0, 0, 15)  # Inclinado oposto
-	right_arm.material_override = white_material
-	symbol_group.add_child(right_arm)
-	
-	# Pernas separadas (andando)
-	var left_leg = MeshInstance3D.new()
-	left_leg.mesh = BoxMesh.new()
-	left_leg.mesh.size = Vector3(0.008, 0.03, 0.006)
-	left_leg.position = Vector3(-0.008, -0.02, 0)
-	left_leg.material_override = white_material
-	symbol_group.add_child(left_leg)
-	
-	var right_leg = MeshInstance3D.new()
-	right_leg.mesh = BoxMesh.new()
-	right_leg.mesh.size = Vector3(0.008, 0.03, 0.006)
-	right_leg.position = Vector3(0.008, -0.02, 0)
-	right_leg.material_override = white_material
-	symbol_group.add_child(right_leg)
-	
-	parent.add_child(symbol_group)
 
-func update_pedestrian_signals():
-	# Atualizar todos os semáforos de pedestres baseado no TrafficManager
-	if not traffic_manager:
-		return
-		
-	var main_state = traffic_manager.get_pedestrian_main_state()  # "walk" ou "dont_walk"
-	var cross_state = traffic_manager.get_pedestrian_cross_state()  # "walk" ou "dont_walk"
-	
-	# Encontrar todos os semáforos de pedestres
-	var pedestrian_signals = get_tree().get_nodes_in_group("pedestrian_signals")
-	if pedestrian_signals.is_empty():
-		# Se não existem em grupo, buscar por nome
-		pedestrian_signals = find_children("PedestrianSignal_*", "Node3D")
-	
-	# Atualizar cada semáforo
-	for signal_node in pedestrian_signals:
-		if not signal_node:
-			continue
-			
-		var signal_type = signal_node.get_meta("signal_type", "")
-		var target_state = ""
-		
-		# Determinar estado baseado no tipo
-		if signal_type == "main":
-			target_state = main_state  # Para atravessar rua principal
-		elif signal_type == "cross":
-			target_state = cross_state  # Para atravessar rua transversal
-		else:
-			continue
-		
-		# Atualizar visual apenas se mudou
-		var current_state = signal_node.get_meta("current_state", "")
-		if current_state != target_state:
-			update_single_pedestrian_signal(signal_node, target_state)
-			signal_node.set_meta("current_state", target_state)
 
-func update_single_pedestrian_signal(signal_node: Node3D, state: String):
-	# Atualizar um semáforo individual COM SÍMBOLOS DE PEDESTRES
-	var red_display = signal_node.get_node_or_null("RedLight")
-	var green_display = signal_node.get_node_or_null("GreenLight")
-	var stop_symbol = signal_node.get_node_or_null("StopSymbol")
-	var walk_symbol = signal_node.get_node_or_null("WalkSymbol")
-	
-	if not red_display or not green_display or not stop_symbol or not walk_symbol:
-		return
-	
-	if state == "walk":
-		# DISPLAY VERDE ACESO com boneco andando
-		var green_material = green_display.material_override as StandardMaterial3D
-		green_material.emission_enabled = true
-		green_material.emission = Color.GREEN * 2.8  # Bem brilhante
-		green_material.albedo_color = Color.GREEN
-		green_material.metallic = 0.0
-		green_material.roughness = 0.1
-		
-		# BONECO ANDANDO VISÍVEL
-		walk_symbol.visible = true
-		update_symbol_visibility(walk_symbol, true)
-		
-		# DISPLAY VERMELHO APAGADO
-		var red_material = red_display.material_override as StandardMaterial3D  
-		red_material.emission_enabled = false
-		red_material.emission = Color.BLACK
-		red_material.albedo_color = Color(0.2, 0.05, 0.05)  # Vermelho escuro
-		red_material.metallic = 0.0
-		red_material.roughness = 0.8
-		
-		# BONECO PARADO INVISÍVEL
-		stop_symbol.visible = false
-		update_symbol_visibility(stop_symbol, false)
-		
-	else:  # "dont_walk"
-		# DISPLAY VERMELHO ACESO com boneco parado
-		var red_material = red_display.material_override as StandardMaterial3D
-		red_material.emission_enabled = true
-		red_material.emission = Color.RED * 2.8  # Bem brilhante
-		red_material.albedo_color = Color.RED
-		red_material.metallic = 0.0
-		red_material.roughness = 0.1
-		
-		# BONECO PARADO VISÍVEL
-		stop_symbol.visible = true
-		update_symbol_visibility(stop_symbol, true)
-		
-		# DISPLAY VERDE APAGADO
-		var green_material = green_display.material_override as StandardMaterial3D
-		green_material.emission_enabled = false
-		green_material.emission = Color.BLACK
-		green_material.albedo_color = Color(0.05, 0.2, 0.05)  # Verde escuro
-		green_material.metallic = 0.0
-		green_material.roughness = 0.8
-		
-		# BONECO ANDANDO INVISÍVEL
-		walk_symbol.visible = false
-		update_symbol_visibility(walk_symbol, false)
 
-func update_symbol_visibility(symbol_group: Node3D, should_be_visible: bool):
-	# Atualizar visibilidade e brilho dos símbolos de pedestres
-	if not symbol_group:
-		return
-		
-	for child in symbol_group.get_children():
-		if child is MeshInstance3D:
-			var material = child.material_override as StandardMaterial3D
-			if material and should_be_visible:
-				material.emission_enabled = true
-				material.emission = Color.WHITE * 1.2  # Bem brilhante quando visível
-				material.albedo_color = Color.WHITE
-			elif material:
-				material.emission_enabled = false
-				material.emission = Color.BLACK
-				material.albedo_color = Color(0.1, 0.1, 0.1)  # Escuro quando invisível
 
 func create_dotted_crosswalk(center_pos: Vector3, direction: Vector3, road_width: float, material: StandardMaterial3D, crosswalk_name: String):
 	# Criar 2 linhas pontilhadas finas para faixa de pedestres
@@ -949,29 +565,23 @@ func create_dotted_crosswalk(center_pos: Vector3, direction: Vector3, road_width
 			dot.name = crosswalk_name + "_Line" + str(line_index) + "_Dot" + str(dot_index)
 			add_child(dot)
 
-func setup_pedestrian_system():
-	# Sistema de pedestres DISABLED - implementar depois
-	print("⚠️ Sistema de pedestres desabilitado temporariamente")
-	# var pedestrian_spawn_system = preload("res://scripts/PedestrianSpawnSystem.gd").new()
-	# pedestrian_spawn_system.name = "PedestrianSpawnSystem"  
-	# add_child(pedestrian_spawn_system)
 
 func setup_traffic_lights():
 	# APENAS 3 SEMÁFOROS com POSIÇÕES EXATAS DO HTML:
 	
 	# Semáforo 1: Rua principal - lado esquerdo (HTML linha 236)
 	# HTML: createTrafficLight(-5, 0, 5, Math.PI / 2, 'main_road')
-	create_traffic_light(Vector3(-5, 0, 5), 90, "main_road_west")
+	create_traffic_light(Vector3(-5, 0, 5), 90, "main_road_west", "S1")
 	
 	# Semáforo 2: Rua principal - lado direito (HTML linha 240)  
 	# HTML: createTrafficLight(5, 0, -5, -Math.PI / 2, 'main_road')
-	create_traffic_light(Vector3(5, 0, -5), -90, "main_road_east")
+	create_traffic_light(Vector3(5, 0, -5), -90, "main_road_east", "S2")
 	
 	# Semáforo 3: Rua de mão única (HTML linha 244)
 	# HTML: createTrafficLight(-5, 0, -5, 0, 'one_way_road')
-	create_traffic_light(Vector3(-5, 0, -5), 0, "cross_road_north")
+	create_traffic_light(Vector3(-5, 0, -5), 0, "cross_road_north", "S3")
 
-func create_traffic_light(pos: Vector3, rotation_y: float, direction: String) -> Node3D:
+func create_traffic_light(pos: Vector3, rotation_y: float, direction: String, label: String = "") -> Node3D:
 	var light_scene = preload("res://scenes/TrafficLight.tscn")
 	var light = light_scene.instantiate()
 	light.name = "TrafficLight_" + direction
@@ -979,8 +589,85 @@ func create_traffic_light(pos: Vector3, rotation_y: float, direction: String) ->
 	light.rotation_degrees.y = rotation_y
 	add_child(light)
 	
+	# Adicionar label 3D acima do semáforo se especificado
+	if label != "":
+		create_traffic_light_label(pos, rotation_y, label)
+	
 	traffic_manager.register_traffic_light(light)
 	return light
+
+func create_traffic_light_label(light_pos: Vector3, rotation_y: float, label_text: String):
+	# Criar container para o label
+	var label_container = Node3D.new()
+	label_container.name = "TrafficLightLabel_" + label_text
+	
+	# Calcular posição da ponta da haste baseado na rotação específica
+	var arm_end_position: Vector3
+	
+	# S1: main_road_west (rotação 90°) em (-5, 0, 5) - haste aponta para a rua
+	# S2: main_road_east (rotação -90°) em (5, 0, -5) - haste aponta para a rua  
+	# S3: cross_road_north (rotação 0°) em (-5, 0, -5) - haste aponta para a rua
+	
+	if rotation_y == 90:  # S1 - haste deve apontar para dentro da rua (para -Z)
+		arm_end_position = light_pos + Vector3(0, 0, -3.0)  # Para -Z (para dentro da rua)
+	elif rotation_y == -90:  # S2 - haste deve apontar para dentro da rua (para +Z)
+		arm_end_position = light_pos + Vector3(0, 0, 3.0)  # Para +Z (para dentro da rua)
+	else:  # S3 (0°) - haste aponta para +X (correto)
+		arm_end_position = light_pos + Vector3(3.0, 0, 0)  # Para +X
+	
+	# Posicionar label acima da luz vermelha (Y=4.5) + margem (1.0) + 2 pixels = Y=7.5
+	var label_position = arm_end_position + Vector3(0, 7.5, 0)
+	label_container.position = label_position
+	
+	# Criar o texto 3D usando MeshInstance3D com TextMesh
+	var text_mesh_instance = MeshInstance3D.new()
+	var text_mesh = TextMesh.new()
+	text_mesh.text = label_text
+	text_mesh.font_size = 80
+	text_mesh.depth = 0.1
+	text_mesh_instance.mesh = text_mesh
+	
+	# Configurar material do texto para ser bem visível
+	var text_material = StandardMaterial3D.new()
+	text_material.albedo_color = Color.WHITE
+	text_material.emission = Color.WHITE * 0.8
+	text_material.emission_energy = 3.0
+	text_material.flags_unshaded = true
+	text_material.flags_do_not_receive_shadows = true
+	text_material.flags_disable_ambient_light = true
+	text_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	text_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	
+	# Aplicar material
+	text_mesh_instance.material_override = text_material
+	
+	# Não usar fundo - o TextMesh já tem boa visibilidade com o material
+	
+	# Adicionar o texto ao container
+	label_container.add_child(text_mesh_instance)
+	
+	# Adicionar à cena
+	add_child(label_container)
+
+func create_label_background(parent_container: Node3D, label_text: String):
+	# Criar um fundo escuro atrás do texto para melhor legibilidade
+	var background = MeshInstance3D.new()
+	var plane_mesh = PlaneMesh.new()
+	
+	# Tamanho baseado no comprimento do texto
+	var text_width = label_text.length() * 0.4  # Aproximação
+	plane_mesh.size = Vector2(text_width + 0.5, 1.0)
+	
+	background.mesh = plane_mesh
+	background.position = Vector3(0, 0, -0.1)  # Ligeiramente atrás do texto
+	
+	# Material escuro semi-transparente
+	var bg_material = StandardMaterial3D.new()
+	bg_material.albedo_color = Color(0, 0, 0, 0.7)  # Preto semi-transparente
+	bg_material.flags_transparent = true
+	background.material_override = bg_material
+	
+	parent_container.add_child(background)
 
 # FUNÇÃO REMOVIDA - SpawnSystem agora gerencia todos os spawn points
 # func setup_spawn_points():

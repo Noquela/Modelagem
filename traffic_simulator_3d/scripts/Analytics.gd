@@ -4,8 +4,20 @@ extends Control
 var fps_label: Label
 var cars_label: Label 
 var throughput_label: Label
-var congestion_label: Label
 var time_label: Label
+
+# Novas estatísticas descritivas
+var avg_wait_label: Label
+var total_spawned_label: Label  
+var cars_passed_label: Label
+var speed_avg_label: Label
+var queue_length_label: Label
+
+# Labels das personalidades
+var aggressive_label: Label
+var conservative_label: Label
+var elderly_label: Label
+var normal_label: Label
 
 # Chart data
 var throughput_history: Array[float] = []
@@ -47,31 +59,52 @@ func create_modern_dashboard():
 	create_toggle_instruction()
 
 func create_compact_stats_overlay():
-	var stats_overlay = create_styled_panel(Color(0.05, 0.05, 0.08, 0.8))
+	var stats_overlay = create_styled_panel(Color(0.05, 0.05, 0.08, 0.9))
 	stats_overlay.name = "StatsOverlay"
 	stats_overlay.position = Vector2(10, 10)
-	stats_overlay.size = Vector2(280, 160)
+	stats_overlay.size = Vector2(350, 360)  # Aumentado para melhor acomodar todas as seções
 	stats_overlay.set_mouse_filter(Control.MOUSE_FILTER_STOP)  # This panel captures mouse
 	add_child(stats_overlay)
 	
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 4)
+	vbox.add_theme_constant_override("separation", 3)
 	stats_overlay.add_child(vbox)
 	
 	# Title
 	var title = Label.new()
-	title.text = "🚦 Traffic Sim 3D"
+	title.text = "🚦 Traffic Simulator 3D - Analytics"
 	title.add_theme_font_size_override("font_size", 14)
 	title.add_theme_color_override("font_color", Color.CYAN)
 	vbox.add_child(title)
 	
-	# Compact stats
+	# Seção: Sistema
+	create_section_header("⚙️ Sistema", Color.YELLOW, vbox)
 	fps_label = create_compact_stat("FPS", "60", Color.LIME_GREEN, vbox)
-	cars_label = create_compact_stat("Cars", "0", Color.ORANGE, vbox)
+	time_label = create_compact_stat("Tempo Sim", "00:00", Color.LIGHT_BLUE, vbox)
+	
+	# Seção: Veículos  
+	create_section_header("🚗 Veículos", Color.ORANGE, vbox)
+	cars_label = create_compact_stat("Ativos", "0", Color.ORANGE, vbox)
+	total_spawned_label = create_compact_stat("Total Criados", "0", Color.LIGHT_GRAY, vbox)
+	cars_passed_label = create_compact_stat("Passaram", "0", Color.GREEN, vbox)
+	
+	# Seção: Tráfego
+	create_section_header("📊 Desempenho do Tráfego", Color.GREEN, vbox)
 	throughput_label = create_compact_stat("Throughput", "0.0/s", Color.GREEN, vbox)
-	congestion_label = create_compact_stat("Congestion", "0%", Color.RED, vbox)
-	time_label = create_compact_stat("Time", "00:00", Color.LIGHT_BLUE, vbox)
+	avg_wait_label = create_compact_stat("Esp. Média", "0.0s", Color.YELLOW, vbox)
+	speed_avg_label = create_compact_stat("Vel. Média", "0.0 km/h", Color.CYAN, vbox)
+	
+	# Seção: Congestionamento
+	create_section_header("🚥 Congestionamento", Color.RED, vbox)
+	queue_length_label = create_compact_stat("Fila Máx", "0", Color.ORANGE, vbox)
+	
+	# Seção: Personalidades dos Motoristas
+	create_section_header("👥 Personalidades", Color.PURPLE, vbox)
+	aggressive_label = create_compact_stat("Agressivos", "0", Color.RED, vbox)
+	normal_label = create_compact_stat("Normais", "0", Color.WHITE, vbox)
+	conservative_label = create_compact_stat("Conservadores", "0", Color.BLUE, vbox)
+	elderly_label = create_compact_stat("Idosos", "0", Color.GRAY, vbox)
 
 func create_compact_stat(label_text: String, value_text: String, color: Color, parent: VBoxContainer) -> Label:
 	var hbox = HBoxContainer.new()
@@ -92,10 +125,17 @@ func create_compact_stat(label_text: String, value_text: String, color: Color, p
 	
 	return value_label
 
+func create_section_header(text: String, color: Color, parent: VBoxContainer):
+	var header = Label.new()
+	header.text = text
+	header.add_theme_font_size_override("font_size", 12)
+	header.add_theme_color_override("font_color", color)
+	parent.add_child(header)
+
 func create_toggle_instruction():
 	var instruction = Label.new()
 	instruction.text = "Press [H] to hide/show stats"
-	instruction.position = Vector2(10, 180)
+	instruction.position = Vector2(10, 385)  # Ajustado para ficar bem abaixo do painel de 360px + margem
 	instruction.add_theme_font_size_override("font_size", 10)
 	instruction.add_theme_color_override("font_color", Color.GRAY)
 	add_child(instruction)
@@ -123,7 +163,6 @@ func create_stats_sidebar():
 	# Create metric cards
 	cars_label = create_metric_card("🚗 Active Cars", "0", Color.ORANGE, vbox)
 	throughput_label = create_metric_card("⚡ Throughput", "0.0 cars/sec", Color.GREEN, vbox)
-	congestion_label = create_metric_card("🚥 Congestion", "0%", Color.RED, vbox)
 	time_label = create_metric_card("⏱️ Sim Time", "00:00", Color.LIGHT_BLUE, vbox)
 
 func create_metric_card(title: String, value: String, color: Color, parent: VBoxContainer) -> Label:
@@ -247,23 +286,48 @@ func create_personality_panel(parent: VBoxContainer):
 func update_display(stats: Dictionary):
 	# Update modern dashboard metrics
 	if fps_label:
-		fps_label.text = "FPS: %.0f" % stats.get("fps", 60.0)
+		fps_label.text = "%.0f" % stats.get("fps", 60.0)
 	
 	if cars_label:
 		cars_label.text = "%d" % stats.get("active_cars", 0)
 	
 	if throughput_label:
-		throughput_label.text = "%.1f cars/sec" % stats.get("throughput", 0.0)
+		throughput_label.text = "%.1f/s" % stats.get("throughput", 0.0)
 	
-	if congestion_label:
-		var congestion_percent = stats.get("congestion", 0.0) * 100
-		congestion_label.text = "%.0f%%" % congestion_percent
 	
 	if time_label:
 		var sim_time = stats.get("simulation_time", 0.0)
 		var minutes = int(sim_time / 60)
 		var seconds = int(sim_time) % 60
-		time_label.text = "Simulation Time: %02d:%02d" % [minutes, seconds]
+		time_label.text = "%02d:%02d" % [minutes, seconds]
+	
+	# Novas estatísticas descritivas
+	if total_spawned_label:
+		total_spawned_label.text = "%d" % stats.get("total_cars_spawned", 0)
+		
+	if cars_passed_label:
+		cars_passed_label.text = "%d" % stats.get("cars_passed_through", 0)
+		
+	if avg_wait_label:
+		avg_wait_label.text = "%.1fs" % stats.get("average_wait_time", 0.0)
+		
+	if speed_avg_label:
+		var avg_speed = stats.get("average_speed", 0.0) * 3.6  # m/s para km/h
+		speed_avg_label.text = "%.1f km/h" % avg_speed
+		
+	if queue_length_label:
+		queue_length_label.text = "%d" % stats.get("max_queue_length", 0)
+		
+	# Atualizar personalidades dos motoristas
+	var personality_stats = stats.get("personality_stats", {})
+	if aggressive_label:
+		aggressive_label.text = "%d" % personality_stats.get("Aggressive", 0)
+	if normal_label:
+		normal_label.text = "%d" % personality_stats.get("Normal", 0)
+	if conservative_label:
+		conservative_label.text = "%d" % personality_stats.get("Conservative", 0)
+	if elderly_label:
+		elderly_label.text = "%d" % personality_stats.get("Elderly", 0)
 	
 	# Update chart data
 	update_chart_data(stats)

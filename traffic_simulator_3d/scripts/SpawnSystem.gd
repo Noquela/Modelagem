@@ -4,16 +4,16 @@ class_name SpawnSystem
 var traffic_manager: Node
 var car_scene = preload("res://scenes/Car.tscn")
 
-# CONFIGURAÇÃO ANTI-TELEPORTE COM TAXAS DIFERENTES POR DIREÇÃO
+# CONFIGURAÇÃO OTIMIZADA PARA HARDWARE FRACO - MENOS CARROS
 const SPAWN_CONFIG = {
-	"base_spawn_rate": 0.04,   # Taxa base
-	"min_spawn_distance": 8.0,  # Distância mínima entre carros
+	"base_spawn_rate": 0.02,   # Taxa base reduzida
+	"min_spawn_distance": 10.0,  # Mais distância entre carros
 	"randomness_factor": 0.5,   # Fator de aleatoriedade
-	"max_queue_length": 8,      # Máximo de carros na fila
-	# TAXAS ESPECÍFICAS POR DIREÇÃO
-	"west_east_rate": 0.12,     # RUA PRINCIPAL: West→East (MUITO TRÁFEGO)
-	"east_west_rate": 0.10,     # RUA PRINCIPAL: East→West (MUITO TRÁFEGO) 
-	"south_north_rate": 0.02    # RUA SECUNDÁRIA: South→North (POUCO TRÁFEGO)
+	"max_queue_length": 4,      # Menos carros na fila
+	# TAXAS ESPECÍFICAS POR DIREÇÃO - BALANCEADAS
+	"west_east_rate": 0.055,    # RUA PRINCIPAL: West→East (equilibrado)
+	"east_west_rate": 0.055,    # RUA PRINCIPAL: East→West (equilibrado) 
+	"south_north_rate": 0.025   # RUA SECUNDÁRIA: South→North (levemente aumentado)
 }
 
 var spawn_points: Array[Dictionary] = []
@@ -58,9 +58,9 @@ func setup_spawn_points():
 			"position": Vector3(35, 0.5, 1.25),   # SPAWN LESTE EM +35
 			"name": "East_Entry"
 		},
-		# TOP_TO_BOTTOM (South → North) - ÚNICA DIREÇÃO DA RUA VERTICAL (1 SEMÁFORO)
+		# BOTTOM_TO_TOP (South → North) - ÚNICA DIREÇÃO DA RUA VERTICAL (1 SEMÁFORO)
 		{
-			"direction": 2,
+			"direction": 3,  # BOTTOM_TO_TOP = índice 3
 			"lane": 0,
 			"position": Vector3(0.0, 0.5, 35),    # SPAWN SUL EM +35
 			"name": "South_Entry"
@@ -128,10 +128,9 @@ func spawn_cars():
 				modified_spawn_point.position = adjust_spawn_position_for_lane(spawn_point, primary_lane)
 				create_car(modified_spawn_point)
 		
-		# SPAWN EXTRA para direções com 2 faixas (tentar ambas as faixas)
-		# Também reduzido para a rua oeste-leste
-		var extra_spawn_chance = 0.6 if spawn_point.direction == 2 else 0.3  # Norte: 60%, Oeste-Leste: 30%
-		if spawn_point.direction in [0, 1] and randf() < 0.2 * extra_spawn_chance:
+		# SPAWN EXTRA para direções com 2 faixas (tentar ambas as faixas) - BALANCEADO
+		var extra_spawn_chance = 0.4  # Chance equilibrada para ambas as direções da rua principal
+		if spawn_point.direction in [0, 1] and randf() < extra_spawn_chance:
 			# Tentar spawnar na outra faixa (0 ou 1)
 			for alternative_lane in [0, 1]:
 				if alternative_lane != primary_lane and can_spawn_in_direction_lane(spawn_point.direction, alternative_lane):
@@ -153,7 +152,7 @@ func should_spawn_car(spawn_point: Dictionary) -> bool:
 			spawn_probability = SPAWN_CONFIG.west_east_rate * rush_hour_multiplier
 		1:  # East → West (RIGHT_TO_LEFT) 
 			spawn_probability = SPAWN_CONFIG.east_west_rate * rush_hour_multiplier
-		2:  # South → North (TOP_TO_BOTTOM)
+		3:  # South → North (BOTTOM_TO_TOP)
 			spawn_probability = SPAWN_CONFIG.south_north_rate * rush_hour_multiplier
 		_:  # Fallback
 			spawn_probability = SPAWN_CONFIG.base_spawn_rate * rush_hour_multiplier
@@ -221,7 +220,7 @@ func calculateDirectionalDistance(spawnPos: Vector3, carPos: Vector3, direction:
 			return carPos.x - spawnPos.x  # positivo se o carro está à frente
 		1:  # RIGHT_TO_LEFT (HTML linha 625-626)
 			return spawnPos.x - carPos.x  # positivo se o carro está à frente  
-		2:  # TOP_TO_BOTTOM South→North (Z=25 para Z=-25) - única direção da rua vertical
+		3:  # BOTTOM_TO_TOP South→North (Z=35 para Z=-35) - única direção da rua vertical
 			return spawnPos.z - carPos.z  # positivo se o carro está à frente (mais ao norte)
 	
 	return 0.0  # HTML linha 630
@@ -237,7 +236,7 @@ func choose_lane_for_direction(direction: int) -> int:
 	match direction:
 		0, 1:  # LEFT_TO_RIGHT, RIGHT_TO_LEFT (duas faixas)
 			return chooseBestLane(direction)
-		2:  # TOP_TO_BOTTOM (única direção da rua vertical)
+		3:  # BOTTOM_TO_TOP (única direção da rua vertical)
 			return 0
 		_:
 			return 0
@@ -273,7 +272,7 @@ func adjust_spawn_position_for_lane(spawn_point: Dictionary, lane: int) -> Vecto
 		1:  # RIGHT_TO_LEFT - faixas acima da linha central (Z positivo)  
 			var z_offset = 3.0 - (lane * 2.0)     # Lane 0: Z=3.0, Lane 1: Z=1.0 (sem sobreposição com linha central Z=0)
 			return Vector3(35, 0.5, z_offset)   # USAR +35 (spawn_point correto)
-		2:  # TOP_TO_BOTTOM - única direção da rua vertical
+		3:  # BOTTOM_TO_TOP - única direção da rua vertical  
 			return Vector3(0.0, 0.5, 35)   # USAR +35 (spawn_point correto)
 		_:
 			return spawn_point.position
@@ -289,7 +288,7 @@ func get_spawn_point_for_direction_lane(direction: int, _lane: int) -> Dictionar
 
 func chooseBestLane(direction: int) -> int:
 	# FUNÇÃO DO HTML - linhas 633-660
-	var maxLanes = 1 if direction == 2 else 2  # TOP_TO_BOTTOM só tem 1 faixa
+	var maxLanes = 1 if direction == 3 else 2  # BOTTOM_TO_TOP só tem 1 faixa
 	var bestLane = -1
 	var maxDistance = 0.0
 	
@@ -365,7 +364,7 @@ func getSpawnPosition(direction: int, lane: int) -> Vector3:
 		1:  # RIGHT_TO_LEFT - spawn do LESTE - faixas acima da linha central
 			var z_offset = 3.0 - (lane * 2.0)     # Lane 0: Z=3.0, Lane 1: Z=1.0
 			pos = Vector3(35, 0.5, z_offset)   # USAR +35 (spawn_point correto)
-		2:  # TOP_TO_BOTTOM - spawn do SUL (única direção da rua vertical)
+		3:  # BOTTOM_TO_TOP - spawn do SUL (única direção da rua vertical)
 			pos = Vector3(0.0, 0.5, 35)    # USAR +35 (spawn_point correto)
 	return pos
 
@@ -391,7 +390,7 @@ func get_directional_distance_to_spawn(car, spawn_pos: Vector3, direction) -> fl
 			return spawn_pos.x - car_pos.x  # Positivo = carro antes do spawn
 		1:  # RIGHT_TO_LEFT - East → West  
 			return car_pos.x - spawn_pos.x  # Positivo = carro antes do spawn
-		2:  # TOP_TO_BOTTOM - South → North (única direção da rua vertical)
+		3:  # BOTTOM_TO_TOP - South → North (única direção da rua vertical)
 			return spawn_pos.z - car_pos.z  # Positivo = carro antes do spawn
 	
 	return 0.0
@@ -424,10 +423,10 @@ func set_car_spawn_position(car: Node3D, spawn_point: Dictionary):
 			rotationY = PI/2  # +90° para apontar para +X (LESTE)
 		1:  # RIGHT_TO_LEFT (East→West)  
 			rotationY = -PI/2  # -90° para apontar para -X (OESTE)
-		2:  # TOP_TO_BOTTOM (South→North)
-			rotationY = PI  # 180° para apontar para -Z (NORTE)
-		3:  # BOTTOM_TO_TOP (North→South) - caso exista
+		2:  # TOP_TO_BOTTOM (North→South) 
 			rotationY = 0  # 0° para apontar para +Z (SUL)
+		3:  # BOTTOM_TO_TOP (South→North)
+			rotationY = PI  # 180° para apontar para -Z (NORTE)
 	
 	car.global_position = spawn_point.position
 	car.rotation.y = rotationY

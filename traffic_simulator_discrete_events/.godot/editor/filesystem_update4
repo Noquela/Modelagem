@@ -1,0 +1,5 @@
+res://scenes/Main.tscn
+res://scripts/Analytics.gd
+res://scripts/SimuladorTrafego.gd
+res://scripts/Main.gd
+res://scripts/SpawnSystem.gd
