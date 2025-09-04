@@ -612,10 +612,14 @@ func adjust_spawn_rate(multiplier: float):
 	print("Spawn rate adjusted to %.1fx" % rush_hour_multiplier)
 
 func pause_spawning():
-	set_process(false)
+	# EVENTOS DISCRETOS: Pausar via GerenciadorEventos
+	if gerenciador_eventos:
+		gerenciador_eventos.pausar_simulacao()
 
 func resume_spawning():
-	set_process(true)
+	# EVENTOS DISCRETOS: Retomar via GerenciadorEventos
+	if gerenciador_eventos:
+		gerenciador_eventos.retomar_simulacao()
 
 # FUNÇÃO DE DEBUG
 func debug_spawn_system():

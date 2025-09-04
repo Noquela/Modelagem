@@ -103,7 +103,7 @@ func _on_evento_processado(evento: GerenciadorEventos.Evento):
 
 func processar_chegada_carro(evento: GerenciadorEventos.Evento):
 	# DELEGAR PARA SPAWN SYSTEM (sistema anterior)
-	var spawn_system = get_node("SpawnSystem")
+	var spawn_system = get_parent().get_node("SpawnSystem")
 	if spawn_system and spawn_system.has_method("processar_evento_spawn"):
 		spawn_system.processar_evento_spawn()
 		estatisticas.carros_chegados += 1
@@ -203,7 +203,10 @@ func atualizar_semaforos_visuais(verde: bool):
 	"""Atualiza semáforos visuais do sistema anterior"""
 	var traffic_manager = get_tree().get_first_node_in_group("traffic_manager")
 	if traffic_manager and traffic_manager.has_method("set_all_lights_state"):
+		# Ativar controle por eventos discretos
+		traffic_manager.discrete_event_control = true
 		traffic_manager.set_all_lights_state(verde)
+		print("🚦 Eventos discretos controlando semáforos: %s" % ("VERDE" if verde else "VERMELHO"))
 	else:
 		# Buscar semáforos diretamente na árvore
 		var lights = get_tree().get_nodes_in_group("traffic_lights")

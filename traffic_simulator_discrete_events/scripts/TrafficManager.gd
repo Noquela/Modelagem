@@ -48,12 +48,45 @@ func _ready():
 	# Initialization print removed for performance
 	set_process(true)
 
+# MÉTODOS PARA INTEGRAÇÃO COM EVENTOS DISCRETOS
+func set_all_lights_state(main_green: bool):
+	"""Define estado dos semáforos via eventos discretos"""
+	if main_green:
+		main_road_state = "green"
+		cross_road_state = "red"
+	else:
+		main_road_state = "red" 
+		cross_road_state = "green"
+	
+	# Aplicar mudanças visuais imediatamente
+	apply_traffic_light_states()
+
+func apply_traffic_light_states():
+	"""Aplica estados aos semáforos visuais 3D"""
+	for light in traffic_lights:
+		if light.has_method("set_state"):
+			# Semáforos 0 e 1: rua principal (West-East)
+			if light.name in ["TrafficLight", "TrafficLight2"]:
+				light.set_state(main_road_state)
+			# Semáforo 2: rua transversal (South-North)
+			elif light.name == "TrafficLight3":
+				light.set_state(cross_road_state)
+
+var discrete_event_control: bool = false  # Controle por eventos discretos
+
 func _process(delta):
 	if is_paused:
 		return
 		
 	simulation_time += delta
-	update_traffic_lights()
+	
+	# HÍBRIDO: Se eventos discretos estão controlando, não atualizar timing automático
+	if not discrete_event_control:
+		update_traffic_lights()
+	else:
+		# Apenas aplicar estados visuais (controlados por eventos discretos)
+		apply_traffic_light_states()
+	
 	update_performance_metrics(delta)
 	update_analytics()
 	emit_signal("stats_updated", get_current_stats())

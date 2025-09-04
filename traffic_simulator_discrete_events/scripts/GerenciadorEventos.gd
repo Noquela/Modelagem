@@ -109,6 +109,9 @@ func continuar_simulacao():
 	simulacao_pausada = false
 	executar_simulacao()
 
+func retomar_simulacao():
+	continuar_simulacao()
+
 # Funções específicas para cada tipo de evento
 func processar_chegada_carro(dados: Dictionary):
 	print("🚗 Novo carro chegando na via")
