@@ -47,6 +47,23 @@ func _ready():
 	add_to_group("traffic_manager")
 	# Initialization print removed for performance
 	set_process(true)
+	
+	# Criar timer para analytics em modo eventos discretos
+	create_analytics_timer()
+
+func create_analytics_timer():
+	"""Timer para analytics quando em modo eventos discretos"""
+	analytics_timer = Timer.new()
+	analytics_timer.timeout.connect(_on_analytics_timer_timeout)
+	analytics_timer.wait_time = 1.0  # Atualizar analytics a cada 1 segundo
+	analytics_timer.autostart = true
+	add_child(analytics_timer)
+
+func _on_analytics_timer_timeout():
+	"""Atualizar analytics via eventos discretos"""
+	if discrete_event_control:
+		update_analytics()
+		emit_signal("stats_updated", get_current_stats())
 
 # MÉTODOS PARA INTEGRAÇÃO COM EVENTOS DISCRETOS
 func set_all_lights_state(main_green: bool):
@@ -74,6 +91,9 @@ func apply_traffic_light_states():
 
 var discrete_event_control: bool = false  # Controle por eventos discretos
 
+# Timer para analytics em eventos discretos
+var analytics_timer: Timer
+
 func _process(delta):
 	if is_paused:
 		return
@@ -83,13 +103,14 @@ func _process(delta):
 	# HÍBRIDO: Se eventos discretos estão controlando, não atualizar timing automático
 	if not discrete_event_control:
 		update_traffic_lights()
+		# Analytics e performance contínuas (modo antigo)
+		update_performance_metrics(delta)
+		update_analytics()
+		emit_signal("stats_updated", get_current_stats())
 	else:
-		# Apenas aplicar estados visuais (controlados por eventos discretos)
+		# EVENTOS DISCRETOS: Apenas aplicar estados visuais (rendering 3D)
 		apply_traffic_light_states()
-	
-	update_performance_metrics(delta)
-	update_analytics()
-	emit_signal("stats_updated", get_current_stats())
+		# Analytics via timer (eventos discretos)
 
 func update_traffic_lights():
 	# NOVO CICLO: Rua oeste-leste (dupla) fica mais tempo verde

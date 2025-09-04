@@ -33,7 +33,9 @@ var personality_breakdown: Control
 
 func _ready():
 	create_ui_elements()
-	set_process(true)
+	# EVENTOS DISCRETOS: Timer em vez de _process()
+	create_update_timer()
+	# Removido set_process(true) - não usamos mais _process()
 
 func create_ui_elements():
 	# Create modern dashboard layout
@@ -507,8 +509,25 @@ func update_personality_display():
 			personality_breakdown.add_child(info_label)
 			y_offset += 20
 
-func _process(_delta):
-	# EVENTOS DISCRETOS: Atualizar dados do SimuladorTrafego
+# EVENTOS DISCRETOS: Timer em vez de _process() contínuo
+var update_timer: Timer
+
+# Função _ready() duplicada removida - mantida versão original acima
+
+func create_update_timer():
+	"""Cria timer para atualizações em eventos discretos"""
+	update_timer = Timer.new()
+	update_timer.timeout.connect(_on_update_timer_timeout)
+	update_timer.wait_time = 1.0  # Atualizar a cada 1 segundo (evento discreto)
+	update_timer.autostart = true
+	add_child(update_timer)
+
+func _on_update_timer_timeout():
+	"""Atualização via eventos discretos (timer)"""
+	if not ui_visible:
+		return
+		
+	# Atualizar dados do SimuladorTrafego
 	var simulador = get_parent().get_node_or_null("SimuladorTrafego")
 	if not simulador:
 		simulador = get_parent() as SimuladorTrafego
@@ -516,166 +535,15 @@ func _process(_delta):
 	if simulador:
 		update_discrete_event_stats(simulador)
 	
-	# Handle UI toggle
-	if Input.is_action_just_pressed("ui_accept") or Input.is_key_pressed(KEY_H):
+	update_personality_display()
+
+func _input(event):
+	"""Processar input para toggle UI"""
+	if event.is_action_pressed("ui_accept") or (event is InputEventKey and event.keycode == KEY_H):
 		toggle_ui_visibility()
-	
-	# Update personality display periodically
-	if Engine.get_process_frames() % 60 == 0:  # Every second
-		update_personality_display()
 
 func toggle_ui_visibility():
 	ui_visible = !ui_visible
 	visible = ui_visible
 
-# ========== PAINEL DE CONTROLES INTERATIVOS PARA EVENTOS DISCRETOS ==========
-
-func create_controls_panel():
-	"""Cria painel de controles interativos para distribuições"""
-	var controls_panel = create_styled_panel(Color(0.05, 0.05, 0.08, 0.95))
-	controls_panel.name = "ControlsPanel"
-	controls_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	controls_panel.size = Vector2(350, 400)
-	controls_panel.position.x = -360
-	add_child(controls_panel)
-	
-	var vbox = VBoxContainer.new()
-	vbox.position = Vector2(10, 10)
-	vbox.size = Vector2(330, 380)
-	controls_panel.add_child(vbox)
-	
-	# Título
-	var titulo = Label.new()
-	titulo.text = "🎛️ CONTROLES DE DISTRIBUIÇÃO"
-	titulo.add_theme_font_size_override("font_size", 14)
-	titulo.add_theme_color_override("font_color", Color.YELLOW)
-	vbox.add_child(titulo)
-	
-	# Separador
-	vbox.add_child(HSeparator.new())
-	
-	# Controle de taxa de chegada
-	create_arrival_rate_control(vbox)
-	
-	# Controle de distribuição por direção
-	create_direction_distribution_control(vbox)
-	
-	# Controle de semáforo
-	create_traffic_light_control(vbox)
-	
-	# Controle de velocidade da simulação
-	create_simulation_speed_control(vbox)
-	
-	# Botões de ação
-	create_action_buttons(vbox)
-
-func create_arrival_rate_control(parent: VBoxContainer):
-	"""Controle de taxa de chegada"""
-	var grupo = VBoxContainer.new()
-	parent.add_child(grupo)
-	
-	var label = Label.new()
-	label.text = "🚗 Taxa de Chegada: 2.5 carros/min"
-	label.add_theme_color_override("font_color", Color.CYAN)
-	grupo.add_child(label)
-	
-	var slider = HSlider.new()
-	slider.min_value = 0.5
-	slider.max_value = 8.0
-	slider.step = 0.1
-	slider.value = 2.5
-	slider.value_changed.connect(_on_arrival_rate_changed)
-	grupo.add_child(slider)
-
-func create_direction_distribution_control(parent: VBoxContainer):
-	"""Controle de distribuição por direção"""
-	var grupo = VBoxContainer.new()
-	parent.add_child(grupo)
-	
-	var label = Label.new()
-	label.text = "🎯 Distribuição por Direção:"
-	label.add_theme_color_override("font_color", Color.GREEN)
-	grupo.add_child(label)
-	
-	# West→East
-	var we_label = Label.new()
-	we_label.text = "   West→East: 45%"
-	grupo.add_child(we_label)
-	
-	# East→West  
-	var ew_label = Label.new()
-	ew_label.text = "   East→West: 40%"
-	grupo.add_child(ew_label)
-	
-	# South→North
-	var sn_label = Label.new()
-	sn_label.text = "   South→North: 15%"
-	grupo.add_child(sn_label)
-
-func create_traffic_light_control(parent: VBoxContainer):
-	"""Controle do semáforo"""
-	var grupo = VBoxContainer.new()
-	parent.add_child(grupo)
-	
-	var label = Label.new()
-	label.text = "🚦 Ciclo do Semáforo:"
-	label.add_theme_color_override("font_color", Color.RED)
-	grupo.add_child(label)
-	
-	var verde_label = Label.new()
-	verde_label.text = "   Verde: 30s"
-	grupo.add_child(verde_label)
-	
-	var vermelho_label = Label.new()
-	vermelho_label.text = "   Vermelho: 25s"
-	grupo.add_child(vermelho_label)
-
-func create_simulation_speed_control(parent: VBoxContainer):
-	"""Controle de velocidade da simulação"""
-	var grupo = VBoxContainer.new()
-	parent.add_child(grupo)
-	
-	var label = Label.new()
-	label.text = "⚡ Velocidade: 1.0x"
-	label.add_theme_color_override("font_color", Color.ORANGE)
-	grupo.add_child(label)
-	
-	var slider = HSlider.new()
-	slider.min_value = 0.1
-	slider.max_value = 5.0
-	slider.step = 0.1
-	slider.value = 1.0
-	slider.value_changed.connect(_on_simulation_speed_changed)
-	grupo.add_child(slider)
-
-func create_action_buttons(parent: VBoxContainer):
-	"""Botões de ação"""
-	var grupo = HBoxContainer.new()
-	parent.add_child(grupo)
-	
-	var btn_reset = Button.new()
-	btn_reset.text = "🔄 Reset"
-	btn_reset.pressed.connect(_on_reset_pressed)
-	grupo.add_child(btn_reset)
-	
-	var btn_pause = Button.new()
-	btn_pause.text = "⏸️ Pause"
-	btn_pause.pressed.connect(_on_pause_pressed)
-	grupo.add_child(btn_pause)
-
-# Callbacks dos controles
-func _on_arrival_rate_changed(value: float):
-	print("📈 Taxa de chegada alterada: %.1f carros/min" % value)
-	# TODO: Alterar taxa no SpawnSystem
-
-func _on_simulation_speed_changed(value: float):
-	print("⚡ Velocidade da simulação: %.1fx" % value)
-	# TODO: Alterar velocidade no GerenciadorEventos
-
-func _on_reset_pressed():
-	print("🔄 Resetando simulação...")
-	get_tree().reload_current_scene()
-
-func _on_pause_pressed():
-	print("⏸️ Pausando simulação...")
-	# TODO: Pausar GerenciadorEventos
+# FUNÇÕES DUPLICADAS REMOVIDAS - versão original mantida acima
