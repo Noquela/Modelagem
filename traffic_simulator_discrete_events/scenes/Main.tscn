@@ -1,0 +1,186 @@
+[gd_scene load_steps=11 format=3 uid="uid://bgoextodp0aqq"]
+
+[ext_resource type="Script" uid="uid://chxpg6j3n65kn" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://l5alm4spvrdq" path="res://scripts/TrafficManager.gd" id="2_traffic_manager"]
+[ext_resource type="Script" uid="uid://b3xgke75ivn6d" path="res://scripts/SpawnSystem.gd" id="3_spawn_system"]
+[ext_resource type="Script" uid="uid://d2jiruxeea0u" path="res://scripts/CameraController.gd" id="4_camera_controller"]
+[ext_resource type="Script" path="res://scripts/Analytics.gd" id="5_analytics"]
+[ext_resource type="Script" uid="uid://cteybb1yvgbfx" path="res://scripts/DiscreteTrafficSimulator.gd" id="6_discrete_simulator"]
+[ext_resource type="Script" uid="uid://bcvlrd7fwhdxs" path="res://scripts/DiscreteEventScheduler.gd" id="7_scheduler"]
+[ext_resource type="Script" uid="uid://dv6m1eq63l4nq" path="res://scripts/TrafficLightSystem.gd" id="8_traffic_system"]
+[ext_resource type="Script" uid="uid://dxtl7t7yv846v" path="res://scripts/VehicleSystem.gd" id="9_vehicle_system"]
+[ext_resource type="Script" uid="uid://cphkdod7dmwoh" path="res://scripts/DiscreteUI.gd" id="10_discrete_ui"]
+
+[node name="root" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="TrafficManager" type="Node3D" parent="."]
+script = ExtResource("2_traffic_manager")
+
+[node name="SpawnSystem" type="Node3D" parent="."]
+script = ExtResource("3_spawn_system")
+
+[node name="CameraController" type="Node3D" parent="."]
+script = ExtResource("4_camera_controller")
+
+[node name="Camera3D" type="Camera3D" parent="CameraController"]
+
+[node name="Analytics" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("5_analytics")
+
+[node name="DiscreteTrafficSimulator" type="Node" parent="."]
+script = ExtResource("6_discrete_simulator")
+
+[node name="DiscreteEventScheduler" type="Node" parent="DiscreteTrafficSimulator"]
+script = ExtResource("7_scheduler")
+
+[node name="TrafficLightSystem" type="Node" parent="DiscreteTrafficSimulator"]
+script = ExtResource("8_traffic_system")
+
+[node name="VehicleSystem" type="Node" parent="DiscreteTrafficSimulator"]
+script = ExtResource("9_vehicle_system")
+
+[node name="DiscreteUI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("10_discrete_ui")
+
+[node name="TopPanel" type="VBoxContainer" parent="DiscreteUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="StatusPanel" type="HBoxContainer" parent="DiscreteUI/TopPanel"]
+layout_mode = 2
+
+[node name="TimeInfo" type="VBoxContainer" parent="DiscreteUI/TopPanel/StatusPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CurrentTime" type="Label" parent="DiscreteUI/TopPanel/StatusPanel/TimeInfo"]
+layout_mode = 2
+text = "⏱️ Tempo: 0.00s"
+
+[node name="QueueInfo" type="Label" parent="DiscreteUI/TopPanel/StatusPanel/TimeInfo"]
+layout_mode = 2
+text = "📋 Fila: 0 eventos"
+
+[node name="TrafficInfo" type="VBoxContainer" parent="DiscreteUI/TopPanel/StatusPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TrafficLights" type="Label" parent="DiscreteUI/TopPanel/StatusPanel/TrafficInfo"]
+layout_mode = 2
+text = "🚦 Semáforos"
+
+[node name="VehicleInfo" type="VBoxContainer" parent="DiscreteUI/TopPanel/StatusPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Vehicles" type="Label" parent="DiscreteUI/TopPanel/StatusPanel/VehicleInfo"]
+layout_mode = 2
+text = "🚗 Veículos"
+
+[node name="RightPanel" type="VBoxContainer" parent="DiscreteUI"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -700.0
+offset_top = 280.0
+offset_right = -20.0
+offset_bottom = -50.0
+grow_horizontal = 0
+
+[node name="EventLogPanel" type="Panel" parent="DiscreteUI/RightPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="EventLog" type="RichTextLabel" parent="DiscreteUI/RightPanel/EventLogPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = -5.0
+offset_bottom = -5.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="FrequencyPanel" type="Panel" parent="DiscreteUI/RightPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="FrequencyTitle" type="Label" parent="DiscreteUI/RightPanel/FrequencyPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = -5.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "📊 Distribuição de Frequência"
+horizontal_alignment = 1
+
+[node name="FrequencyChart" type="Control" parent="DiscreteUI/RightPanel/FrequencyPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+offset_top = 30.0
+offset_right = -5.0
+offset_bottom = -5.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BottomPanel" type="HBoxContainer" parent="DiscreteUI"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -100.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="PlayPauseButton" type="Button" parent="DiscreteUI/BottomPanel"]
+layout_mode = 2
+text = "▶️ Play"
+
+[node name="ResetButton" type="Button" parent="DiscreteUI/BottomPanel"]
+layout_mode = 2
+text = "🔄 Reset"
+
+[node name="StepButton" type="Button" parent="DiscreteUI/BottomPanel"]
+layout_mode = 2
+text = "⏭️ Step"
+
+[node name="Spacer" type="Control" parent="DiscreteUI/BottomPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HelpLabel" type="Label" parent="DiscreteUI/BottomPanel"]
+layout_mode = 2
+text = "H: Toggle UI | Enter: Step | Esc: Reset"
+horizontal_alignment = 2

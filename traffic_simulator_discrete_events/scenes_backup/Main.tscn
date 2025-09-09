@@ -1,0 +1,26 @@
+[gd_scene load_steps=6 format=3 uid="uid://ja8qwxe2kt7o"]
+
+[ext_resource type="Script" uid="uid://dhf3bm5tvhigk" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://bmtg8yrrrpu76" path="res://scripts/TrafficManager.gd" id="2_traffic_manager"]
+[ext_resource type="Script" uid="uid://dto638absac2m" path="res://scripts/SpawnSystem.gd" id="3_spawn_system"]
+[ext_resource type="Script" uid="uid://ti5g77f2bpt5" path="res://scripts/CameraController.gd" id="4_camera_controller"]
+[ext_resource type="Script" uid="uid://b4hvtb7saacjx" path="res://scripts/Analytics.gd" id="5_analytics"]
+
+[node name="root" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="TrafficManager" type="Node3D" parent="."]
+script = ExtResource("2_traffic_manager")
+
+[node name="SpawnSystem" type="Node3D" parent="."]
+script = ExtResource("3_spawn_system")
+
+[node name="CameraController" type="Node3D" parent="."]
+script = ExtResource("4_camera_controller")
+
+[node name="Camera3D" type="Camera3D" parent="CameraController"]
+
+[node name="Analytics" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("5_analytics")
