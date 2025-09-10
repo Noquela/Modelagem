@@ -41,19 +41,31 @@ func _ready():
 	
 	# 2. Criar ponte de comunicação
 	hybrid_bridge = HybridBridge.new()
-	hybrid_bridge.name = "HybridBridge"
-	add_child(hybrid_bridge)
+	if hybrid_bridge:
+		hybrid_bridge.name = "HybridBridge"
+		add_child(hybrid_bridge)
+		print("✅ HybridBridge criada")
+	else:
+		print("❌ Falha ao criar HybridBridge")
 	
 	# 3. Criar renderizador visual
 	visual_renderer = VisualRenderer3D.new()
-	visual_renderer.name = "VisualRenderer3D"
-	add_child(visual_renderer)
+	if visual_renderer:
+		visual_renderer.name = "VisualRenderer3D"
+		add_child(visual_renderer)
+		print("✅ VisualRenderer3D criada")
+	else:
+		print("❌ Falha ao criar VisualRenderer3D")
 	
 	# 4. Criar simulador discreto
 	discrete_simulator = DiscreteTrafficSimulator.new()
-	discrete_simulator.name = "HybridDiscreteSimulator"
-	discrete_simulator.set_hybrid_mode(true)
-	add_child(discrete_simulator)
+	if discrete_simulator:
+		discrete_simulator.name = "HybridDiscreteSimulator"
+		discrete_simulator.set_hybrid_mode(true)
+		add_child(discrete_simulator)
+		print("✅ DiscreteTrafficSimulator criado")
+	else:
+		print("❌ Falha ao criar DiscreteTrafficSimulator")
 	
 	# 5. Configurar conexões
 	await setup_connections()
@@ -350,6 +362,11 @@ func _on_discrete_car_spawned(car_id: int):
 	var car_3d = _create_visual_car(car_data)
 	if not car_3d:
 		print("❌ Failed to create visual car ID=%d" % car_id)
+		return
+	
+	# Verificar se este nó ainda existe antes de adicionar child
+	if not is_inside_tree():
+		print("⚠️ HybridTrafficSystem not in tree, cannot add car %d" % car_id)
 		return
 	
 	add_child(car_3d)
