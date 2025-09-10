@@ -64,7 +64,7 @@ func _insert_event_ordered(event: DiscreteEvent) -> void:
 	var right = future_events.size()
 	
 	while left < right:
-		var mid = (left + right) / 2
+		var mid = (left + right) / 2  # Godot automaticamente converte para int
 		if future_events[mid].compare_time(event):
 			left = mid + 1
 		else:
@@ -177,7 +177,7 @@ func _interpolate_from_events(entity_id: int, target_time: float, events: Array[
 	
 	# Interpolação linear simples por agora
 	if before_event != null and after_event != null:
-		var t = (target_time - before_event.event_time) / (after_event.event_time - before_event.event_time)
+		var t = float(target_time - before_event.event_time) / float(after_event.event_time - before_event.event_time)
 		
 		var pos_before = before_event.data.get("position", Vector3.ZERO)
 		var pos_after = after_event.data.get("position", Vector3.ZERO)
