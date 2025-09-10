@@ -31,7 +31,7 @@ func handle_car_spawn_event(event_data: Dictionary):
 	var car_id = event_data.car_id
 	var direction = event_data.direction as DiscreteCar.Direction
 	var personality = event_data.personality as DiscreteCar.DriverPersonality
-	var spawn_time = simulation_clock.get_simulation_time()
+	var spawn_time = simulation_clock.get_time()
 	
 	var car = DiscreteCar.new(car_id, spawn_time, direction, personality)
 	var journey = VehicleJourney.new(car_id, car)
@@ -46,7 +46,7 @@ func handle_car_spawn_event(event_data: Dictionary):
 
 func _schedule_car_arrival_at_intersection(car: DiscreteCar, journey: VehicleJourney):
 	var travel_time = journey.calculate_travel_time_for_segment(0)
-	var arrival_time = simulation_clock.get_simulation_time() + travel_time
+	var arrival_time = simulation_clock.get_time() + travel_time
 	
 	var arrival_event = DiscreteEvent.new(
 		arrival_time,
@@ -69,7 +69,7 @@ func handle_car_arrival_event(event_data: Dictionary):
 		print("ERROR: Car %d not found for arrival event" % car_id)
 		return
 	
-	var arrival_time = simulation_clock.get_simulation_time()
+	var arrival_time = simulation_clock.get_time()
 	var light_state = journey.get_light_state_at_time(arrival_time)
 	
 	print("Car %d arrived at intersection - Light: %s" % [car_id, light_state])
@@ -127,7 +127,7 @@ func handle_car_exit_intersection_event(event_data: Dictionary):
 	if not car or not journey:
 		return
 	
-	var current_time = simulation_clock.get_simulation_time()
+	var current_time = simulation_clock.get_time()
 	car.start_clearing(current_time)
 	journey.advance_to_next_segment()
 	
@@ -151,14 +151,14 @@ func handle_car_departure_event(event_data: Dictionary):
 	var car = active_cars.get(car_id)
 	
 	if car:
-		var wait_time = car.get_wait_time(simulation_clock.get_simulation_time())
+		var wait_time = car.get_wait_time(simulation_clock.get_time())
 		print("Car %d departed - Total wait time: %.2fs" % [car_id, wait_time])
 	
 	active_cars.erase(car_id)
 	car_journeys.erase(car_id)
 
 func schedule_periodic_spawns(spawn_duration: float = 300.0):
-	var current_time = simulation_clock.get_simulation_time()
+	var current_time = simulation_clock.get_time()
 	var end_time = current_time + spawn_duration
 	
 	var spawn_time = current_time + 1.0
@@ -222,7 +222,7 @@ func get_average_wait_time() -> float:
 	
 	var total_wait_time = 0.0
 	var cars_with_wait = 0
-	var current_time = simulation_clock.get_simulation_time()
+	var current_time = simulation_clock.get_time()
 	
 	for car in active_cars.values():
 		var wait_time = car.get_wait_time(current_time)

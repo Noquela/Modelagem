@@ -1,3 +1,2 @@
-res://scripts/core/DiscreteEventScheduler.gd
 res://scenes/Main.tscn
-res://scripts/core/DiscreteEvent.gd
+res://scripts/vehicles/VehicleEventManager.gd

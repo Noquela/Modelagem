@@ -166,7 +166,7 @@ func _on_event_executed(event: DiscreteEvent):
 					vehicle_manager._handle_car_proceeding_through_intersection(
 						vehicle_manager.active_cars.get(event.data.car_id),
 						vehicle_manager.car_journeys.get(event.data.car_id),
-						simulation_clock.get_simulation_time()
+						simulation_clock.get_time()
 					)
 				elif event.data.arrival_position == "exit_intersection":
 					vehicle_manager.handle_car_exit_intersection_event(event.data)
