@@ -274,6 +274,32 @@ func _setup_lighting():
 	var world_env = get_viewport().world_3d.environment
 	if not world_env:
 		get_viewport().world_3d.environment = environment
+	
+	# CRIAR CÂMERA se não existir
+	_setup_camera()
+
+func _setup_camera():
+	"""Configura câmera para visualizar o mundo 3D"""
+	# Verificar se já existe uma câmera ativa
+	var existing_camera = get_viewport().get_camera_3d()
+	if existing_camera:
+		print("📷 Câmera existente encontrada: %s" % existing_camera.name)
+		return
+	
+	# Criar câmera se não existir
+	var camera_controller = Node3D.new()
+	camera_controller.name = "CameraController"
+	camera_controller.position = Vector3(0, 25, 25)  # Posição isométrica
+	camera_controller.rotation_degrees = Vector3(-30, 0, 0)  # Olhando para baixo
+	
+	var camera = Camera3D.new()
+	camera.name = "Camera3D"
+	camera.position = Vector3.ZERO
+	
+	camera_controller.add_child(camera)
+	add_child(camera_controller)
+	
+	print("📷 Câmera criada e posicionada para visualizar o mundo")
 
 func setup_connections():
 	"""Configura conexões entre componentes"""
