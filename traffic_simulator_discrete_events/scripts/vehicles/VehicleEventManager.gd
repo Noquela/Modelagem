@@ -14,8 +14,9 @@ func _init(event_scheduler: DiscreteEventScheduler, clock: SimulationClock):
 
 func schedule_vehicle_spawn(spawn_time: float, direction: DiscreteCar.Direction, personality: DiscreteCar.DriverPersonality):
 	var spawn_event = DiscreteEvent.new(
-		DiscreteEvent.EventType.CAR_SPAWN,
 		spawn_time,
+		DiscreteEvent.EventType.CAR_SPAWN,
+		next_car_id,
 		{
 			"car_id": next_car_id,
 			"direction": direction,
@@ -48,8 +49,9 @@ func _schedule_car_arrival_at_intersection(car: DiscreteCar, journey: VehicleJou
 	var arrival_time = simulation_clock.get_simulation_time() + travel_time
 	
 	var arrival_event = DiscreteEvent.new(
-		DiscreteEvent.EventType.CAR_ARRIVAL,
 		arrival_time,
+		DiscreteEvent.EventType.CAR_ARRIVAL,
+		car.car_id,
 		{
 			"car_id": car.car_id,
 			"arrival_position": "intersection"
@@ -84,8 +86,9 @@ func _handle_car_waiting_at_intersection(car: DiscreteCar, journey: VehicleJourn
 	var proceed_time = current_time + wait_time
 	
 	var proceed_event = DiscreteEvent.new(
-		DiscreteEvent.EventType.CAR_ARRIVAL,
 		proceed_time,
+		DiscreteEvent.EventType.CAR_ARRIVAL,
+		car.car_id,
 		{
 			"car_id": car.car_id,
 			"arrival_position": "proceeding"
@@ -103,8 +106,9 @@ func _handle_car_proceeding_through_intersection(car: DiscreteCar, journey: Vehi
 	var exit_intersection_time = current_time + crossing_time
 	
 	var crossing_event = DiscreteEvent.new(
-		DiscreteEvent.EventType.CAR_ARRIVAL,
 		exit_intersection_time,
+		DiscreteEvent.EventType.CAR_ARRIVAL,
+		car.car_id,
 		{
 			"car_id": car.car_id,
 			"arrival_position": "exit_intersection"
@@ -131,8 +135,9 @@ func handle_car_exit_intersection_event(event_data: Dictionary):
 	var departure_time = current_time + exit_time
 	
 	var departure_event = DiscreteEvent.new(
-		DiscreteEvent.EventType.CAR_DEPARTURE,
 		departure_time,
+		DiscreteEvent.EventType.CAR_DEPARTURE,
+		car.car_id,
 		{
 			"car_id": car.car_id
 		}
