@@ -273,9 +273,8 @@ func setup_connections():
 		traffic_manager = discrete_simulator.traffic_manager
 		print("✅ Using DiscreteTrafficManager from simulator")
 	else:
-		# Criar TrafficManager básico
+		# Criar TrafficManager básico (RefCounted, não precisa de add_child)
 		traffic_manager = _create_basic_traffic_manager()
-		add_child(traffic_manager)
 		print("✅ Created basic traffic manager")
 	
 	# Encontrar componentes de câmera e analytics se existirem
@@ -306,17 +305,21 @@ func connect_hybrid_events():
 	
 	# Conectar sinais do simulador discreto
 	if discrete_simulator:
-		# Usar sinais existentes do discrete_simulator
-		discrete_simulator.simulation_started.connect(_on_simulation_started)
-		discrete_simulator.stats_updated.connect(_on_stats_updated)
+		# Verificar se sinais existem antes de conectar
+		if discrete_simulator.has_signal("simulation_started"):
+			discrete_simulator.simulation_started.connect(_on_simulation_started)
+		if discrete_simulator.has_signal("stats_updated"):
+			discrete_simulator.stats_updated.connect(_on_stats_updated)
 		
 		# Conectar através do event_scheduler
 		if discrete_simulator.event_scheduler:
-			discrete_simulator.event_scheduler.entity_created.connect(_on_discrete_car_spawned)
-			discrete_simulator.event_scheduler.entity_destroyed.connect(_on_discrete_car_removed)
+			if discrete_simulator.event_scheduler.has_signal("entity_created"):
+				discrete_simulator.event_scheduler.entity_created.connect(_on_discrete_car_spawned)
+			if discrete_simulator.event_scheduler.has_signal("entity_destroyed"):
+				discrete_simulator.event_scheduler.entity_destroyed.connect(_on_discrete_car_removed)
 	
 	# Conectar sinais da ponte
-	if hybrid_bridge:
+	if hybrid_bridge and hybrid_bridge.has_signal("animation_completed"):
 		hybrid_bridge.animation_completed.connect(_on_animation_completed)
 	
 	print("✅ Eventos conectados")
