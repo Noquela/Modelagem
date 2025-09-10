@@ -63,12 +63,22 @@ Backend (Lógica) - Discreto ───────┘
 - Sincronizar backend discreto com frontend contínuo
 - Interpolação visual entre eventos
 - Manter 60fps visual com lógica discreta
+- **UI explícita mostrando separação Backend Discreto vs Frontend Contínuo**
 
 **Entregáveis:**
 1. `HybridRenderer.gd` - Ponte visual-lógica
 2. `CarVisualProxy.gd` - Representação visual
 3. Sistema de interpolação de movimento
 4. Sincronização de estado visual
+5. **UI com painel "Backend Events" vs "Visual Rendering"**
+   - Log de eventos discretos: `🔴 DISCRETE EVENT: CAR_SPAWN at t=2.0s`
+   - Log de interpolação visual: `🎨 VISUAL: Smoothly moving car from A→B`
+   - Separação visual clara entre lógica discreta e renderização contínua
+6. **UI de Distribuição de Frequência**
+   - Histograma de tipos de eventos por intervalo de tempo
+   - Gráfico de frequência de spawn por direção
+   - Distribuição de personalidades dos motoristas
+   - Análise de intervalos entre eventos (para validar comportamento discreto)
 
 ### Sprint 5: Analytics e Otimização (2 dias)
 
@@ -76,12 +86,18 @@ Backend (Lógica) - Discreto ───────┘
 - Métricas específicas para simulação discreta
 - Performance tuning
 - Validação vs simulador contínuo
+- **Análise estatística detalhada das distribuições de frequência**
 
 **Entregáveis:**
 1. `DiscreteAnalytics.gd` - Métricas especializadas
 2. Comparação de performance
 3. Validação de resultados
 4. Interface de debug
+5. **Sistema de análise estatística:**
+   - Distribuição de Poisson para spawns de veículos
+   - Análise de variância nos tempos de espera
+   - Correlação entre personalidades e comportamento
+   - Validação estatística vs simulador original (teste qui-quadrado)
 
 ## Arquitetura Técnica Detalhada
 

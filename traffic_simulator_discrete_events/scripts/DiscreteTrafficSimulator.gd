@@ -7,6 +7,7 @@ extends Node
 # Componentes principais
 var event_scheduler: DiscreteEventScheduler
 var simulation_clock: SimulationClock
+var vehicle_manager: VehicleEventManager
 
 # Estado da simulação
 var is_running: bool = false
@@ -45,6 +46,7 @@ func setup_simulation():
 	# Criar componentes principais
 	simulation_clock = SimulationClock.new(0.0)
 	event_scheduler = DiscreteEventScheduler.new(simulation_clock)
+	vehicle_manager = VehicleEventManager.new(event_scheduler, simulation_clock)
 	
 	# Conectar sinais
 	event_scheduler.event_executed.connect(_on_event_executed)
@@ -154,9 +156,26 @@ func get_simulation_statistics() -> Dictionary:
 ## ============================================================================
 
 func _on_event_executed(event: DiscreteEvent):
-	# Handler para quando um evento é executado
-	# Será expandido nos próximos sprints
-	pass
+	# Handler para eventos de veículos
+	match event.event_type:
+		DiscreteEvent.EventType.CAR_SPAWN:
+			vehicle_manager.handle_car_spawn_event(event.data)
+		DiscreteEvent.EventType.CAR_ARRIVAL:
+			if event.data.has("arrival_position"):
+				if event.data.arrival_position == "proceeding":
+					vehicle_manager._handle_car_proceeding_through_intersection(
+						vehicle_manager.active_cars.get(event.data.car_id),
+						vehicle_manager.car_journeys.get(event.data.car_id),
+						simulation_clock.get_simulation_time()
+					)
+				elif event.data.arrival_position == "exit_intersection":
+					vehicle_manager.handle_car_exit_intersection_event(event.data)
+				else:
+					vehicle_manager.handle_car_arrival_event(event.data)
+		DiscreteEvent.EventType.CAR_DEPARTURE:
+			vehicle_manager.handle_car_departure_event(event.data)
+		_:
+			pass
 
 func _on_entity_created(entity_id: int):
 	# Handler para criação de entidade
@@ -171,63 +190,58 @@ func _on_entity_destroyed(entity_id: int):
 ## ============================================================================
 
 func create_test_events():
-	print("Creating test events for Sprint 1 validation...")
+	print("Creating test events for Sprint 2 validation...")
 	
-	# Teste 1: Eventos de spawn de carros
-	var spawn_times = [1.0, 2.5, 4.0, 6.2, 8.1]
-	for i in range(spawn_times.size()):
-		var spawn_event = DiscreteEvent.new(spawn_times[i], DiscreteEvent.EventType.CAR_SPAWN, i)
-		spawn_event.data = {"spawn_point": "west", "position": Vector3(-30, 0, 0)}
-		event_scheduler.schedule_event(spawn_event)
-		event_scheduler.register_entity(i, {"type": "car", "spawn_time": spawn_times[i]})
+	# SPRINT 2: Testes de veículos reais com lógica completa
+	print("Scheduling realistic vehicle spawns...")
+	vehicle_manager.schedule_periodic_spawns(60.0)  # 1 minuto de spawns
 	
-	# Teste 2: Eventos de semáforo
-	var light_times = [0.0, 20.0, 23.0, 24.0, 34.0, 37.0]  # Ciclo de 40s
-	var light_states = ["green", "yellow", "red", "green", "yellow", "red"]
-	for i in range(light_times.size()):
-		var light_event = DiscreteEvent.new(light_times[i], DiscreteEvent.EventType.LIGHT_CHANGE, -1)
-		light_event.data = {"light_id": "main_road", "state": light_states[i]}
-		event_scheduler.schedule_event(light_event)
+	# Teste adicional: alguns veículos específicos para debug
+	var test_spawn_times = [2.0, 15.0, 35.0]
+	var test_directions = [DiscreteCar.Direction.LEFT_TO_RIGHT, DiscreteCar.Direction.RIGHT_TO_LEFT, DiscreteCar.Direction.BOTTOM_TO_TOP]
+	var test_personalities = [DiscreteCar.DriverPersonality.AGGRESSIVE, DiscreteCar.DriverPersonality.NORMAL, DiscreteCar.DriverPersonality.CONSERVATIVE]
 	
-	# Teste 3: Eventos de chegada na intersecção
-	var arrival_times = [8.5, 12.3, 15.7, 18.9, 22.4]
-	for i in range(arrival_times.size()):
-		var arrival_event = DiscreteEvent.new(arrival_times[i], DiscreteEvent.EventType.CAR_ARRIVAL, i)
-		arrival_event.data = {"intersection": "main", "position": Vector3(-5, 0, 0)}
-		event_scheduler.schedule_event(arrival_event)
+	for i in range(test_spawn_times.size()):
+		vehicle_manager.schedule_vehicle_spawn(
+			test_spawn_times[i],
+			test_directions[i],
+			test_personalities[i]
+		)
 	
-	print("Created %d test events" % (spawn_times.size() + light_times.size() + arrival_times.size()))
+	print("Created realistic vehicle test events")
 
 func run_validation_test():
-	print("=== SPRINT 1 VALIDATION TEST ===")
+	print("=== SPRINT 2 VALIDATION TEST ===")
 	
-	# Test 1: Verificar agendamento
-	print("Test 1: Event scheduling")
-	var test_event = DiscreteEvent.new(10.0, DiscreteEvent.EventType.CAR_SPAWN, 999)
-	event_scheduler.schedule_event(test_event)
-	print("Events scheduled: %d" % event_scheduler.get_pending_events_count())
-	
-	# Test 2: Verificar execução de eventos
-	print("\nTest 2: Event execution")
+	# Test 1: Verificar sistema de veículos
+	print("Test 1: Vehicle system")
 	start_simulation()
 	
-	# Simular por alguns segundos
-	for i in range(100):  # 100 frames
-		update_simulation(0.1)  # 0.1 segundos por frame
+	# Test 2: Simular alguns veículos
+	print("\nTest 2: Vehicle simulation")
+	for i in range(200):  # 200 frames = ~20 segundos
+		update_simulation(0.1)
 	
-	var stats = get_simulation_statistics()
-	print("Events executed: %d" % stats.scheduler.total_executed)
+	# Test 3: Estatísticas de veículos
+	print("\nTest 3: Vehicle statistics")
+	print("Active cars: %d" % vehicle_manager.get_active_car_count())
+	print("Total spawned: %d" % vehicle_manager.get_total_cars_spawned())
+	print("Cars waiting: %d" % vehicle_manager.get_cars_waiting_count())
+	print("Average wait time: %.2fs" % vehicle_manager.get_average_wait_time())
 	
-	# Test 3: Testar predição
-	print("\nTest 3: Position prediction")
-	var predicted_pos = event_scheduler.predict_entity_position_at_time(0, get_current_time() + 5.0)
-	print("Predicted position for entity 0 in +5s: %s" % predicted_pos)
+	# Test 4: Predição de posições de veículos
+	print("\nTest 4: Vehicle position prediction")
+	if vehicle_manager.get_active_car_count() > 0:
+		var first_car_id = vehicle_manager.active_cars.keys()[0]
+		var predicted_pos = vehicle_manager.predict_car_position_at_time(first_car_id, get_current_time() + 5.0)
+		print("Predicted position for car %d in +5s: %s" % [first_car_id, predicted_pos])
 	
-	# Test 4: Debug info
-	print("\nTest 4: System status")
+	# Test 5: Debug info
+	print("\nTest 5: System status")
+	print(vehicle_manager.get_debug_info())
 	event_scheduler.print_debug_info()
 	
-	print("\n=== SPRINT 1 VALIDATION COMPLETE ===")
+	print("\n=== SPRINT 2 VALIDATION COMPLETE ===")
 
 ## Input handling para testes
 func _input(event):

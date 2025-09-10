@@ -159,10 +159,15 @@ func predict_entity_position_at_time(entity_id: int, target_time: float) -> Vect
 	
 	return predicted_position
 
-## Interpola posição baseado em eventos futuros agendados
+## Interpola posição baseado em eventos futuros agendados - EXPANDIDO PARA VEÍCULOS
 func _interpolate_from_events(entity_id: int, target_time: float, events: Array[DiscreteEvent]) -> Vector3:
-	# Por agora, retorna posição placeholder
-	# Será implementado completamente no Sprint 2 com lógica de veículos
+	# Tentativa de usar VehicleEventManager se disponível
+	if has_method("get_vehicle_manager"):
+		var vehicle_manager = call("get_vehicle_manager")
+		if vehicle_manager and vehicle_manager.has_method("predict_car_position_at_time"):
+			var position = vehicle_manager.predict_car_position_at_time(entity_id, target_time)
+			if position != Vector3.ZERO:
+				return position
 	
 	# Buscar evento mais próximo antes e depois do target_time
 	var before_event: DiscreteEvent = null
@@ -175,24 +180,61 @@ func _interpolate_from_events(entity_id: int, target_time: float, events: Array[
 			after_event = event
 			break
 	
-	# Interpolação linear simples por agora
+	# Interpolação baseada no tipo de evento
 	if before_event != null and after_event != null:
-		var t = float(target_time - before_event.event_time) / float(after_event.event_time - before_event.event_time)
-		
-		var pos_before = before_event.data.get("position", Vector3.ZERO)
-		var pos_after = after_event.data.get("position", Vector3.ZERO)
-		
-		return pos_before.lerp(pos_after, t)
+		return _interpolate_between_vehicle_events(before_event, after_event, target_time)
 	elif before_event != null:
-		return before_event.data.get("position", Vector3.ZERO)
+		return _extrapolate_from_single_event(before_event, target_time)
 	elif after_event != null:
 		return after_event.data.get("position", Vector3.ZERO)
 	
 	return Vector3.ZERO
 
-## Extrapola posição atual quando não há eventos futuros
+func _interpolate_between_vehicle_events(before_event: DiscreteEvent, after_event: DiscreteEvent, target_time: float) -> Vector3:
+	var time_delta = after_event.event_time - before_event.event_time
+	if time_delta <= 0.0:
+		return before_event.data.get("position", Vector3.ZERO)
+	
+	var progress = (target_time - before_event.event_time) / time_delta
+	progress = clamp(progress, 0.0, 1.0)
+	
+	var pos_before = before_event.data.get("position", Vector3.ZERO)
+	var pos_after = after_event.data.get("position", Vector3.ZERO)
+	
+	# Interpolação suave para movimento de veículos
+	var smooth_progress = _smooth_interpolation(progress)
+	return pos_before.lerp(pos_after, smooth_progress)
+
+func _smooth_interpolation(t: float) -> float:
+	# Curva suave para movimento mais realista
+	return t * t * (3.0 - 2.0 * t)
+
+func _extrapolate_from_single_event(event: DiscreteEvent, target_time: float) -> Vector3:
+	var base_position = event.data.get("position", Vector3.ZERO)
+	var velocity = event.data.get("velocity", Vector3.ZERO)
+	var time_diff = target_time - event.event_time
+	
+	# Extrapolação linear com velocidade
+	if velocity != Vector3.ZERO:
+		return base_position + velocity * time_diff
+	
+	return base_position
+
+## Extrapola posição atual quando não há eventos futuros - EXPANDIDO PARA VEÍCULOS
 func _extrapolate_current_position(entity_id: int, target_time: float) -> Vector3:
-	# Placeholder - será implementado no Sprint 2
+	# Verificar se é um veículo registrado
+	if entities.has(entity_id):
+		var entity_data = entities[entity_id]
+		var current_pos = entity_data.get("position", Vector3.ZERO)
+		var velocity = entity_data.get("velocity", Vector3.ZERO)
+		var current_time = simulation_clock.get_time()
+		
+		if velocity != Vector3.ZERO:
+			var time_diff = target_time - current_time
+			return current_pos + velocity * time_diff
+		
+		return current_pos
+	
 	return Vector3.ZERO
 
 ## ============================================================================

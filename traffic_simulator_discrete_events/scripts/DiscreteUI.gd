@@ -40,11 +40,19 @@ func update_display():
 			status = "Paused"
 		status_label.text = "Status: %s (Speed: %.1fx)" % [status, simulator.simulation_speed]
 	
-	# Atualizar eventos
+	# Atualizar eventos e veículos
 	if events_label and simulator.event_scheduler:
 		var pending = simulator.event_scheduler.get_pending_events_count()
 		var total_executed = simulator.event_scheduler.total_events_executed
-		events_label.text = "Events - Pending: %d, Executed: %d" % [pending, total_executed]
+		var vehicles_info = ""
+		
+		if simulator.vehicle_manager:
+			var active_cars = simulator.vehicle_manager.get_active_car_count()
+			var total_spawned = simulator.vehicle_manager.get_total_cars_spawned()
+			var avg_wait = simulator.vehicle_manager.get_average_wait_time()
+			vehicles_info = " | Cars: %d/%d | Wait: %.1fs" % [active_cars, total_spawned, avg_wait]
+		
+		events_label.text = "Events - Pending: %d, Executed: %d%s" % [pending, total_executed, vehicles_info]
 
 func _on_simulation_started():
 	print("UI: Simulation started")
