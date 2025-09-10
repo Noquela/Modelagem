@@ -8,6 +8,7 @@ extends Node
 var event_scheduler: DiscreteEventScheduler
 var simulation_clock: SimulationClock
 var vehicle_manager: VehicleEventManager
+var traffic_manager: DiscreteTrafficManager
 
 # Estado da simulação
 var is_running: bool = false
@@ -47,6 +48,7 @@ func setup_simulation():
 	simulation_clock = SimulationClock.new(0.0)
 	event_scheduler = DiscreteEventScheduler.new(simulation_clock)
 	vehicle_manager = VehicleEventManager.new(event_scheduler, simulation_clock)
+	traffic_manager = DiscreteTrafficManager.new(event_scheduler, simulation_clock)
 	
 	# Conectar sinais
 	event_scheduler.event_executed.connect(_on_event_executed)
@@ -156,7 +158,7 @@ func get_simulation_statistics() -> Dictionary:
 ## ============================================================================
 
 func _on_event_executed(event: DiscreteEvent):
-	# Handler para eventos de veículos
+	# Handler para eventos de veículos e semáforos
 	match event.event_type:
 		DiscreteEvent.EventType.CAR_SPAWN:
 			vehicle_manager.handle_car_spawn_event(event.data)
@@ -174,6 +176,10 @@ func _on_event_executed(event: DiscreteEvent):
 					vehicle_manager.handle_car_arrival_event(event.data)
 		DiscreteEvent.EventType.CAR_DEPARTURE:
 			vehicle_manager.handle_car_departure_event(event.data)
+		DiscreteEvent.EventType.LIGHT_CHANGE:
+			traffic_manager.handle_light_change_event(event.data)
+		DiscreteEvent.EventType.QUEUE_PROCESS:
+			traffic_manager.handle_queue_processing_event(event.data)
 		_:
 			pass
 
@@ -211,15 +217,15 @@ func create_test_events():
 	print("Created realistic vehicle test events")
 
 func run_validation_test():
-	print("=== SPRINT 2 VALIDATION TEST ===")
+	print("=== SPRINT 3 VALIDATION TEST ===")
 	
-	# Test 1: Verificar sistema de veículos
-	print("Test 1: Vehicle system")
+	# Test 1: Verificar sistema completo (veículos + semáforos)
+	print("Test 1: Complete traffic system")
 	start_simulation()
 	
-	# Test 2: Simular alguns veículos
-	print("\nTest 2: Vehicle simulation")
-	for i in range(200):  # 200 frames = ~20 segundos
+	# Test 2: Simular tráfego com semáforos
+	print("\nTest 2: Traffic simulation with lights")
+	for i in range(500):  # 500 frames = ~50 segundos (mais de 1 ciclo completo)
 		update_simulation(0.1)
 	
 	# Test 3: Estatísticas de veículos
@@ -229,19 +235,24 @@ func run_validation_test():
 	print("Cars waiting: %d" % vehicle_manager.get_cars_waiting_count())
 	print("Average wait time: %.2fs" % vehicle_manager.get_average_wait_time())
 	
-	# Test 4: Predição de posições de veículos
-	print("\nTest 4: Vehicle position prediction")
-	if vehicle_manager.get_active_car_count() > 0:
-		var first_car_id = vehicle_manager.active_cars.keys()[0]
-		var predicted_pos = vehicle_manager.predict_car_position_at_time(first_car_id, get_current_time() + 5.0)
-		print("Predicted position for car %d in +5s: %s" % [first_car_id, predicted_pos])
+	# Test 4: Estatísticas de semáforos e filas
+	print("\nTest 4: Traffic light and queue statistics")
+	print(traffic_manager.get_debug_info())
+	print("Queue sizes: %s" % traffic_manager.get_queue_sizes())
+	print("Total queued cars: %d" % traffic_manager.get_total_queued_cars())
 	
-	# Test 5: Debug info
-	print("\nTest 5: System status")
+	# Test 5: Estados dos semáforos
+	print("\nTest 5: Traffic light states")
+	print("Main road (West/East): %s" % traffic_manager.main_road_state)
+	print("Cross road (South/North): %s" % traffic_manager.cross_road_state)
+	print("Cycle phase: %.1fs/40s" % traffic_manager.get_current_cycle_phase())
+	
+	# Test 6: Debug info completo
+	print("\nTest 6: Complete system status")
 	print(vehicle_manager.get_debug_info())
 	event_scheduler.print_debug_info()
 	
-	print("\n=== SPRINT 2 VALIDATION COMPLETE ===")
+	print("\n=== SPRINT 3 VALIDATION COMPLETE ===")
 
 ## Input handling para testes
 func _input(event):

@@ -57,11 +57,15 @@ func _execute_car_departure(simulator) -> void:
 
 func _execute_light_change(simulator) -> void:
 	print("Executing LIGHT_CHANGE at time %.2f" % [event_time])
-	# Será implementado no Sprint 3
+	# Implementado no Sprint 3
+	if simulator.has_method("handle_light_change_event"):
+		simulator.handle_light_change_event(data)
 
 func _execute_queue_process(simulator) -> void:
 	print("Executing QUEUE_PROCESS at time %.2f" % [event_time])
-	# Será implementado no Sprint 3
+	# Implementado no Sprint 3
+	if simulator.has_method("handle_queue_processing_event"):
+		simulator.handle_queue_processing_event(data)
 
 ## Comparação para ordenação (eventos mais cedo primeiro)
 func compare_time(other_event: DiscreteEvent) -> bool:
