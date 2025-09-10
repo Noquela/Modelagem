@@ -72,40 +72,31 @@ func animate_car_spawn(car_3d: Node3D, spawn_position: Vector3):
 	# Posicionar carro na posição de spawn
 	car_3d.global_position = spawn_position
 	
-	# Efeito de fade in + scale
+	# Efeito apenas de scale (sem modulate que não existe em Node3D)
 	car_3d.scale = Vector3.ZERO
-	car_3d.modulate.a = 0.0
 	
 	var tween = create_tween()
-	tween.set_parallel(true)
 	
-	# Fade in
-	tween.tween_property(car_3d, "modulate:a", 1.0, 0.5)
+	# Scale up suavemente
+	tween.tween_property(car_3d, "scale", Vector3.ONE, 0.5)
+	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	
-	# Scale up
-	tween.tween_property(car_3d, "scale", Vector3.ONE, 0.3)
-	tween.tween_property(car_3d, "scale", Vector3.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	
-	print("✨ BRIDGE: Spawning car %d with fade in effect" % car_id)
+	print("✨ BRIDGE: Spawning car %d with scale effect" % car_id)
 
 func animate_car_despawn(car_3d: Node3D, callback: Callable):
 	"""Anima remoção do carro com efeito suave"""
 	var car_id = car_3d.car_id
 	
 	var tween = create_tween()
-	tween.set_parallel(true)
 	
-	# Fade out
-	tween.tween_property(car_3d, "modulate:a", 0.0, 0.3)
-	
-	# Scale down
+	# Scale down suavemente
 	tween.tween_property(car_3d, "scale", Vector3.ZERO, 0.4)
-	tween.tween_property(car_3d, "scale", Vector3.ZERO, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	
 	# Callback para remoção
 	tween.tween_callback(callback)
 	
-	print("🗑️ BRIDGE: Despawning car %d with fade out effect" % car_id)
+	print("🗑️ BRIDGE: Despawning car %d with scale effect" % car_id)
 
 func calculate_rotation_for_movement(from: Vector3, to: Vector3, direction) -> float:
 	"""Calcula rotação correta baseada na direção do movimento"""
