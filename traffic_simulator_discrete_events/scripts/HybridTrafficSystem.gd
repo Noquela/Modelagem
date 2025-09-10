@@ -159,7 +159,6 @@ func _create_traffic_light_node(light_name: String, position: Vector3) -> Node3D
 	# Poste do semáforo
 	var pole = CSGCylinder3D.new()
 	pole.height = 4.0
-	pole.radial_segments = 8
 	pole.position = Vector3(0, -2, 0)
 	
 	# Material do poste
