@@ -1,378 +1,252 @@
-extends Node
 class_name DiscreteTrafficSimulator
+extends Node
 
-# PASSO 5 - CONTROLADOR PRINCIPAL DOS EVENTOS DISCRETOS
-# RESPONSABILIDADE: Conectar scheduler + systems + agendar eventos iniciais
+## Sistema principal do simulador de tráfego baseado em eventos discretos
+## Integra todos os componentes e coordena a simulação
 
-@onready var scheduler: DiscreteEventScheduler = $DiscreteEventScheduler
-@onready var traffic_light_system: TrafficLightSystem = $TrafficLightSystem
-@onready var vehicle_system: VehicleSystem = $VehicleSystem
+# Componentes principais
+var event_scheduler: DiscreteEventScheduler
+var simulation_clock: SimulationClock
 
+# Estado da simulação
+var is_running: bool = false
+var simulation_speed: float = 1.0
+
+# Timer para updates regulares
+var update_timer: float = 0.0
+var update_interval: float = 0.016  # ~60 FPS
+
+# Estatísticas
+var frame_count: int = 0
+var last_stats_time: float = 0.0
+
+# Signals para UI
 signal simulation_started()
+signal simulation_stopped()
 signal simulation_paused()
-signal simulation_reset()
-signal event_executed(event: DiscreteEvent)
-
-var is_initialized: bool = false
+signal simulation_resumed()
+signal stats_updated(stats: Dictionary)
 
 func _ready():
-	print("🎮 DiscreteTrafficSimulator inicializando...")
-	
-	# Aguardar que todos os nós filhos sejam carregados
-	await get_tree().process_frame
-	
-	initialize_systems()
-	setup_initial_events()
-	
-	is_initialized = true
-	print("✅ DiscreteTrafficSimulator pronto!")
+	setup_simulation()
+	create_test_events()  # Para validar Sprint 1
+	print("DiscreteTrafficSimulator initialized")
 
-func _process(_delta):
-	# Atualizar timers dos semáforos em tempo real (mesmo em eventos discretos)
-	if is_initialized and traffic_light_system and scheduler:
-		traffic_light_system.update_timer_displays(scheduler.get_displayed_time())
-
-func initialize_systems():
-	print("🔗 Conectando sistemas...")
-	
-	# Conectar sinais do scheduler
-	if scheduler:
-		scheduler.event_processed.connect(_on_event_processed)
-		print("  ✅ Scheduler conectado")
-	else:
-		push_error("❌ DiscreteEventScheduler não encontrado!")
-	
-	# Sistema de semáforos já inicializa sozinho
-	if traffic_light_system:
-		print("  ✅ TrafficLightSystem conectado")
-	else:
-		push_error("❌ TrafficLightSystem não encontrado!")
-	
-	# Conectar sistema de veículos
-	if vehicle_system:
-		vehicle_system.vehicle_despawned.connect(_on_vehicle_despawned)
-		print("  ✅ VehicleSystem conectado")
-	else:
-		push_error("❌ VehicleSystem não encontrado!")
-
-func setup_initial_events():
-	if not scheduler:
-		return
-		
-	print("📅 Agendando eventos iniciais do ciclo de semáforos...")
-	
-	# Começar com semáforos principais verdes (estado inicial)
-	var start_time = 0.0
-	
-	# Ciclo completo: 20s + 3s + 1s + 10s + 3s + 1s = 38s
-	var main_green_duration = traffic_light_system.CYCLE_TIMES["MAIN_GREEN"]      # 20s
-	var main_yellow_duration = traffic_light_system.CYCLE_TIMES["MAIN_YELLOW"]    # 3s  
-	var all_red_1_duration = traffic_light_system.CYCLE_TIMES["ALL_RED_1"]        # 1s
-	var cross_green_duration = traffic_light_system.CYCLE_TIMES["CROSS_GREEN"]    # 10s
-	var cross_yellow_duration = traffic_light_system.CYCLE_TIMES["CROSS_YELLOW"]  # 3s
-	var all_red_2_duration = traffic_light_system.CYCLE_TIMES["ALL_RED_2"]        # 1s
-	
-	# Evento 1: Semáforos principais passam para amarelo
-	var t1 = start_time + main_green_duration
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_MAIN_AMARELO, t1)
-	
-	# Evento 2: Todos vermelhos (transição)
-	var t2 = t1 + main_yellow_duration
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_TODOS_VERMELHO_1, t2)
-	
-	# Evento 3: Semáforo transversal verde
-	var t3 = t2 + all_red_1_duration
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_CROSS_VERDE, t3)
-	
-	# Evento 4: Semáforo transversal amarelo
-	var t4 = t3 + cross_green_duration
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_CROSS_AMARELO, t4)
-	
-	# Evento 5: Todos vermelhos (transição)
-	var t5 = t4 + cross_yellow_duration
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_TODOS_VERMELHO_2, t5)
-	
-	# Evento 6: Volta para semáforos principais verdes (reinicia ciclo)
-	var t6 = t5 + all_red_2_duration
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_MAIN_VERDE, t6)
-	
-	print("📅 Eventos iniciais agendados:")
-	print("  t=%.1fs: MAIN_AMARELO" % t1)
-	print("  t=%.1fs: TODOS_VERMELHO_1" % t2) 
-	print("  t=%.1fs: CROSS_VERDE" % t3)
-	print("  t=%.1fs: CROSS_AMARELO" % t4)
-	print("  t=%.1fs: TODOS_VERMELHO_2" % t5)
-	print("  t=%.1fs: MAIN_VERDE (reinicia)" % t6)
-	
-	# Agendar primeiros spawns de veículos
-	schedule_initial_vehicle_spawns()
-
-func schedule_traffic_event(event_type: EventTypes.Type, time: float):
-	var event = DiscreteEvent.new(time, event_type, {})
-	scheduler.schedule_event(event)
-
-func _on_event_processed(event: DiscreteEvent):
-	print("🎯 Executando: %s em t=%.2f" % [EventTypes.get_event_name(event.type), event.time])
-	
-	# Processar evento baseado no tipo
-	match event.type:
-		# Eventos de semáforos
-		EventTypes.Type.SEMAFORO_MAIN_VERDE, \
-		EventTypes.Type.SEMAFORO_MAIN_AMARELO, \
-		EventTypes.Type.SEMAFORO_TODOS_VERMELHO_1, \
-		EventTypes.Type.SEMAFORO_CROSS_VERDE, \
-		EventTypes.Type.SEMAFORO_CROSS_AMARELO, \
-		EventTypes.Type.SEMAFORO_TODOS_VERMELHO_2:
-			handle_traffic_light_event(event)
-		
-		# Eventos de veículos (FASE 6)
-		EventTypes.Type.SPAWN_CARRO_WEST, \
-		EventTypes.Type.SPAWN_CARRO_EAST, \
-		EventTypes.Type.SPAWN_CARRO_NORTH:
-			handle_vehicle_spawn_event(event)
-		
-		EventTypes.Type.CARRO_SAIU:
-			handle_vehicle_exit_event(event)
-			
-		# Eventos de movimento de veículos
-		EventTypes.Type.CARRO_MOVE_PARA_INTERSECAO, \
-		EventTypes.Type.CARRO_ATRAVESSA_INTERSECAO, \
-		EventTypes.Type.CARRO_RETOMA_MOVIMENTO, \
-		EventTypes.Type.CARRO_AVANCA_FILA:
-			handle_vehicle_movement_event(event)
-			
-		EventTypes.Type.CARRO_PARA_NO_SEMAFORO, \
-		EventTypes.Type.CARRO_CHEGA_FILA:
-			handle_vehicle_stop_event(event)
-		
-		EventTypes.Type.UPDATE_STATS:
-			print("📊 Update stats (não implementado ainda)")
-	
-	# Atualizar timers dos semáforos
-	if traffic_light_system and scheduler:
-		traffic_light_system.update_timer_displays(scheduler.get_displayed_time())
-	
-	# Emitir sinal para UI
-	event_executed.emit(event)
-	
-	# Reagendar próximo ciclo se necessário
-	schedule_next_cycle_if_needed(event)
-
-func handle_traffic_light_event(event: DiscreteEvent):
-	if traffic_light_system:
-		traffic_light_system.process_traffic_light_event(event.type)
-
-func handle_vehicle_spawn_event(event: DiscreteEvent):
-	if not vehicle_system:
-		return
-		
-	var direction = ""
-	match event.type:
-		EventTypes.Type.SPAWN_CARRO_WEST:
-			direction = "WEST"
-		EventTypes.Type.SPAWN_CARRO_EAST:
-			direction = "EAST"
-		EventTypes.Type.SPAWN_CARRO_NORTH:
-			direction = "NORTH"
-	
-	var vehicle_id = vehicle_system.spawn_vehicle(direction)
-	if not vehicle_id.is_empty():
-		# Agendar próximo spawn desta direção
-		schedule_next_vehicle_spawn(direction, event.time)
-		
-		# Agendar primeiro movimento do carro
-		schedule_vehicle_movement(vehicle_id, event.time)
-
-func handle_vehicle_exit_event(event: DiscreteEvent):
-	if not vehicle_system:
-		return
-		
-	var vehicle_id = event.data.get("vehicle_id", "")
-	if not vehicle_id.is_empty():
-		vehicle_system.despawn_vehicle(vehicle_id)
-
-func _on_vehicle_despawned(vehicle_id: String, exit_point: String):
-	# Agendar evento CARRO_SAIU quando veículo chega ao fim
-	var current_time = scheduler.get_current_time()
-	var exit_event = DiscreteEvent.new(current_time, EventTypes.Type.CARRO_SAIU, {"vehicle_id": vehicle_id})
-	scheduler.schedule_event(exit_event)
-
-func schedule_next_cycle_if_needed(event: DiscreteEvent):
-	# Se chegou ao final do ciclo (SEMAFORO_MAIN_VERDE), agendar próximo ciclo
-	if event.type == EventTypes.Type.SEMAFORO_MAIN_VERDE:
-		var cycle_start_time = event.time
-		schedule_full_cycle(cycle_start_time)
-
-func schedule_full_cycle(start_time: float):
-	# Agendar um ciclo completo a partir de start_time
-	var main_green = traffic_light_system.CYCLE_TIMES["MAIN_GREEN"]
-	var main_yellow = traffic_light_system.CYCLE_TIMES["MAIN_YELLOW"]
-	var all_red_1 = traffic_light_system.CYCLE_TIMES["ALL_RED_1"]
-	var cross_green = traffic_light_system.CYCLE_TIMES["CROSS_GREEN"]
-	var cross_yellow = traffic_light_system.CYCLE_TIMES["CROSS_YELLOW"]
-	var all_red_2 = traffic_light_system.CYCLE_TIMES["ALL_RED_2"]
-	
-	var t1 = start_time + main_green
-	var t2 = t1 + main_yellow
-	var t3 = t2 + all_red_1
-	var t4 = t3 + cross_green
-	var t5 = t4 + cross_yellow
-	var t6 = t5 + all_red_2
-	
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_MAIN_AMARELO, t1)
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_TODOS_VERMELHO_1, t2)
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_CROSS_VERDE, t3)
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_CROSS_AMARELO, t4)
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_TODOS_VERMELHO_2, t5)
-	schedule_traffic_event(EventTypes.Type.SEMAFORO_MAIN_VERDE, t6)
-	
-	print("🔄 Próximo ciclo agendado iniciando em t=%.1fs" % start_time)
-
-func schedule_initial_vehicle_spawns():
-	# Primeiros spawns em momentos aleatórios nos primeiros 10 segundos
-	var spawn_times = {
-		"WEST": randf_range(2.0, 8.0),
-		"EAST": randf_range(1.0, 6.0), 
-		"NORTH": randf_range(3.0, 10.0)
-	}
-	
-	for direction in spawn_times.keys():
-		var spawn_time = spawn_times[direction]
-		var event_type = get_spawn_event_type(direction)
-		schedule_traffic_event(event_type, spawn_time)
-		print("🚗 Primeiro spawn %s agendado para t=%.1fs" % [direction, spawn_time])
-
-func schedule_next_vehicle_spawn(direction: String, last_spawn_time: float):
-	if not vehicle_system:
-		return
-		
-	# Intervalo baseado na taxa de spawn (mais realístico)
-	var spawn_rate = vehicle_system.get_spawn_rate(direction)
-	if spawn_rate <= 0:
-		return
-		
-	# Intervalo médio = 1/taxa, com variação aleatória
-	var avg_interval = 1.0 / spawn_rate
-	var next_interval = randf_range(avg_interval * 0.5, avg_interval * 1.5)
-	var next_spawn_time = last_spawn_time + next_interval
-	
-	var event_type = get_spawn_event_type(direction)
-	schedule_traffic_event(event_type, next_spawn_time)
-
-func get_spawn_event_type(direction: String) -> EventTypes.Type:
-	match direction:
-		"WEST":
-			return EventTypes.Type.SPAWN_CARRO_WEST
-		"EAST":
-			return EventTypes.Type.SPAWN_CARRO_EAST
-		"NORTH":
-			return EventTypes.Type.SPAWN_CARRO_NORTH
-		_:
-			return EventTypes.Type.SPAWN_CARRO_WEST
-
-# NOVAS FUNÇÕES PARA EVENTOS DE MOVIMENTO
-
-func handle_vehicle_movement_event(event: DiscreteEvent):
-	if not vehicle_system:
-		return
-		
-	var vehicle_id = event.data.get("vehicle_id", "")
-	if vehicle_id.is_empty():
+func _process(delta):
+	if not is_running:
 		return
 	
-	# Mover o carro para a próxima posição
-	var moved = vehicle_system.move_vehicle_to_next_position(vehicle_id)
-	if moved:
-		print("🚗 %s moveu para próxima posição" % vehicle_id)
-		
-		# Verificar se carro chegou ao fim
-		var car_info = vehicle_system.get_vehicle_info(vehicle_id)
-		if car_info.has("position_index") and car_info.position_index >= 6:
-			# Carro saiu - agendar evento de saída
-			var exit_time = scheduler.get_current_time() + 0.1
-			var exit_event = DiscreteEvent.new(exit_time, EventTypes.Type.CARRO_SAIU, {"vehicle_id": vehicle_id})
-			scheduler.schedule_event(exit_event)
-		else:
-			# Agendar próximo movimento
-			schedule_vehicle_movement(vehicle_id, event.time)
+	update_timer += delta
+	if update_timer >= update_interval:
+		update_simulation(update_timer)
+		update_timer = 0.0
 
-func handle_vehicle_stop_event(event: DiscreteEvent):
-	if not vehicle_system:
-		return
-		
-	var vehicle_id = event.data.get("vehicle_id", "")
-	if vehicle_id.is_empty():
-		return
+func setup_simulation():
+	# Criar componentes principais
+	simulation_clock = SimulationClock.new(0.0)
+	event_scheduler = DiscreteEventScheduler.new(simulation_clock)
 	
-	print("🚗🛑 %s parou (semáforo ou fila)" % vehicle_id)
+	# Conectar sinais
+	event_scheduler.event_executed.connect(_on_event_executed)
+	event_scheduler.entity_created.connect(_on_entity_created)
+	event_scheduler.entity_destroyed.connect(_on_entity_destroyed)
 	
-	# Verificar periodicamente se pode retomar movimento
-	var car = vehicle_system.discrete_cars.get(vehicle_id)
-	var retry_interval = car.speed_factor if car else 2.0
-	var retry_time = event.time + retry_interval  # Usar tempo baseado na velocidade do carro
-	var retry_event = DiscreteEvent.new(retry_time, EventTypes.Type.CARRO_MOVE_PARA_INTERSECAO, {"vehicle_id": vehicle_id})
-	scheduler.schedule_event(retry_event)
+	print("Simulation components created")
 
-func schedule_vehicle_movement(vehicle_id: String, current_time: float):
-	if not vehicle_system:
-		return
-		
-	# Verificar se o carro pode se mover
-	if vehicle_system.can_vehicle_move(vehicle_id):
-		# Agendar movimento
-		var car_info = vehicle_system.get_vehicle_info(vehicle_id)
-		var car = vehicle_system.discrete_cars[vehicle_id]
-		var move_time = current_time + car.speed_factor + 0.5  # Dar tempo extra para animação
-		
-		var movement_event = DiscreteEvent.new(move_time, EventTypes.Type.CARRO_MOVE_PARA_INTERSECAO, {"vehicle_id": vehicle_id})
-		scheduler.schedule_event(movement_event)
-	else:
-		# Carro não pode se mover - agendar parada
-		var stop_time = current_time + 0.5
-		var stop_event = DiscreteEvent.new(stop_time, EventTypes.Type.CARRO_PARA_NO_SEMAFORO, {"vehicle_id": vehicle_id})
-		scheduler.schedule_event(stop_event)
+func update_simulation(delta_time: float):
+	# Atualizar relógio
+	simulation_clock.update(delta_time)
+	
+	# Processar eventos até o tempo atual
+	var current_time = simulation_clock.get_time()
+	var events_processed = event_scheduler.process_events_until(current_time)
+	
+	# Atualizar estatísticas
+	frame_count += 1
+	if current_time - last_stats_time >= 1.0:  # A cada segundo
+		emit_statistics()
+		last_stats_time = current_time
 
-# Controles públicos da simulação
+func emit_statistics():
+	var stats = get_simulation_statistics()
+	stats_updated.emit(stats)
+
+## ============================================================================
+## CONTROLES DA SIMULAÇÃO
+## ============================================================================
+
 func start_simulation():
-	if not is_initialized:
-		print("⚠️ Simulação não inicializada ainda")
-		return
-		
-	if scheduler:
-		scheduler.start_simulation()
+	if not is_running:
+		is_running = true
+		simulation_clock.resume()
 		simulation_started.emit()
-		print("▶️ Simulação INICIADA")
+		print("Simulation STARTED at time %.2f" % simulation_clock.get_time())
+
+func stop_simulation():
+	if is_running:
+		is_running = false
+		simulation_clock.pause()
+		simulation_stopped.emit()
+		print("Simulation STOPPED at time %.2f" % simulation_clock.get_time())
 
 func pause_simulation():
-	if scheduler:
-		scheduler.pause_simulation()
+	if is_running:
+		simulation_clock.pause()
 		simulation_paused.emit()
-		print("⏸️ Simulação PAUSADA")
+		print("Simulation PAUSED")
+
+func resume_simulation():
+	if is_running:
+		simulation_clock.resume()
+		simulation_resumed.emit()
+		print("Simulation RESUMED")
 
 func reset_simulation():
-	if scheduler:
-		scheduler.reset_simulation()
-		setup_initial_events()
-		simulation_reset.emit()
-		print("🔄 Simulação RESETADA")
+	stop_simulation()
+	event_scheduler.clear_all()
+	simulation_clock.reset()
+	frame_count = 0
+	last_stats_time = 0.0
+	print("Simulation RESET")
 
-func step_simulation():
-	if scheduler:
-		var advanced = scheduler.advance_to_next_event()
-		if not advanced:
-			print("🏁 Não há mais eventos para processar")
-		return advanced
+func set_simulation_speed(speed: float):
+	simulation_speed = clamp(speed, 0.1, 10.0)
+	simulation_clock.set_speed(simulation_speed)
+	print("Simulation speed set to %.1fx" % simulation_speed)
 
-func get_simulation_info() -> String:
-	var info = ""
+## ============================================================================
+## MÉTODOS PÚBLICOS PARA INTERFACE
+## ============================================================================
+
+func get_current_time() -> float:
+	return simulation_clock.get_time()
+
+func get_formatted_time() -> String:
+	return simulation_clock.format_time()
+
+func schedule_event(event: DiscreteEvent) -> void:
+	event_scheduler.schedule_event(event)
+
+func predict_entity_position(entity_id: int, target_time: float) -> Vector3:
+	return event_scheduler.predict_entity_position_at_time(entity_id, target_time)
+
+func get_future_events_for_entity(entity_id: int, time_window: float) -> Array[DiscreteEvent]:
+	return event_scheduler.get_future_events_for_entity(entity_id, time_window)
+
+## ============================================================================
+## ESTATÍSTICAS
+## ============================================================================
+
+func get_simulation_statistics() -> Dictionary:
+	var scheduler_stats = event_scheduler.get_statistics()
+	var clock_stats = simulation_clock.get_status()
 	
-	if scheduler:
-		info += "⏱️ Tempo atual: %.2fs\n" % scheduler.get_current_time()
-		info += "📋 Eventos na fila: %d\n" % scheduler.get_events_count()
-		info += "▶️ Status: %s\n" % ("RODANDO" if scheduler.is_running else "PAUSADO")
-		info += "\n"
+	return {
+		"is_running": is_running,
+		"frame_count": frame_count,
+		"simulation_speed": simulation_speed,
+		"scheduler": scheduler_stats,
+		"clock": clock_stats
+	}
+
+## ============================================================================
+## HANDLERS DE EVENTOS
+## ============================================================================
+
+func _on_event_executed(event: DiscreteEvent):
+	# Handler para quando um evento é executado
+	# Será expandido nos próximos sprints
+	pass
+
+func _on_entity_created(entity_id: int):
+	# Handler para criação de entidade
+	print("Entity created: %d" % entity_id)
+
+func _on_entity_destroyed(entity_id: int):
+	# Handler para destruição de entidade  
+	print("Entity destroyed: %d" % entity_id)
+
+## ============================================================================
+## SISTEMA DE TESTES DO SPRINT 1
+## ============================================================================
+
+func create_test_events():
+	print("Creating test events for Sprint 1 validation...")
 	
-	if traffic_light_system:
-		info += traffic_light_system.get_traffic_lights_info()
+	# Teste 1: Eventos de spawn de carros
+	var spawn_times = [1.0, 2.5, 4.0, 6.2, 8.1]
+	for i in range(spawn_times.size()):
+		var spawn_event = DiscreteEvent.new(spawn_times[i], DiscreteEvent.EventType.CAR_SPAWN, i)
+		spawn_event.data = {"spawn_point": "west", "position": Vector3(-30, 0, 0)}
+		event_scheduler.schedule_event(spawn_event)
+		event_scheduler.register_entity(i, {"type": "car", "spawn_time": spawn_times[i]})
 	
-	return info
+	# Teste 2: Eventos de semáforo
+	var light_times = [0.0, 20.0, 23.0, 24.0, 34.0, 37.0]  # Ciclo de 40s
+	var light_states = ["green", "yellow", "red", "green", "yellow", "red"]
+	for i in range(light_times.size()):
+		var light_event = DiscreteEvent.new(light_times[i], DiscreteEvent.EventType.LIGHT_CHANGE, -1)
+		light_event.data = {"light_id": "main_road", "state": light_states[i]}
+		event_scheduler.schedule_event(light_event)
+	
+	# Teste 3: Eventos de chegada na intersecção
+	var arrival_times = [8.5, 12.3, 15.7, 18.9, 22.4]
+	for i in range(arrival_times.size()):
+		var arrival_event = DiscreteEvent.new(arrival_times[i], DiscreteEvent.EventType.CAR_ARRIVAL, i)
+		arrival_event.data = {"intersection": "main", "position": Vector3(-5, 0, 0)}
+		event_scheduler.schedule_event(arrival_event)
+	
+	print("Created %d test events" % (spawn_times.size() + light_times.size() + arrival_times.size()))
+
+func run_validation_test():
+	print("=== SPRINT 1 VALIDATION TEST ===")
+	
+	# Test 1: Verificar agendamento
+	print("Test 1: Event scheduling")
+	var test_event = DiscreteEvent.new(10.0, DiscreteEvent.EventType.CAR_SPAWN, 999)
+	event_scheduler.schedule_event(test_event)
+	print("Events scheduled: %d" % event_scheduler.get_pending_events_count())
+	
+	# Test 2: Verificar execução de eventos
+	print("\nTest 2: Event execution")
+	start_simulation()
+	
+	# Simular por alguns segundos
+	for i in range(100):  # 100 frames
+		update_simulation(0.1)  # 0.1 segundos por frame
+	
+	var stats = get_simulation_statistics()
+	print("Events executed: %d" % stats.scheduler.total_executed)
+	
+	# Test 3: Testar predição
+	print("\nTest 3: Position prediction")
+	var predicted_pos = event_scheduler.predict_entity_position_at_time(0, get_current_time() + 5.0)
+	print("Predicted position for entity 0 in +5s: %s" % predicted_pos)
+	
+	# Test 4: Debug info
+	print("\nTest 4: System status")
+	event_scheduler.print_debug_info()
+	
+	print("\n=== SPRINT 1 VALIDATION COMPLETE ===")
+
+## Input handling para testes
+func _input(event):
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_1:
+				start_simulation()
+			KEY_2:
+				stop_simulation()
+			KEY_3:
+				pause_simulation() if not simulation_clock.is_paused else resume_simulation()
+			KEY_4:
+				set_simulation_speed(simulation_speed * 2.0)
+			KEY_5:
+				set_simulation_speed(simulation_speed * 0.5)
+			KEY_V:
+				run_validation_test()
+			KEY_R:
+				reset_simulation()
+				create_test_events()
+			KEY_D:
+				event_scheduler.print_debug_info()
