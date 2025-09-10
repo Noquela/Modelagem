@@ -6,10 +6,19 @@ extends Node3D
 @onready var spawn_system = $SpawnSystem
 @onready var analytics = $Analytics
 
+# Referência para o traffic_manager do discrete_simulator
+var traffic_manager
+
 var is_running: bool = true
 
 func _ready():
-	# Initialization print removed for performance
+	# Aguardar inicialização dos nodes filhos
+	await get_tree().process_frame
+	
+	# Obter referência ao traffic_manager
+	traffic_manager = discrete_simulator.traffic_manager
+	
+	# Setup do ambiente 3D
 	setup_environment()
 	setup_traffic_lights()
 	connect_signals()

@@ -1,6 +1,22 @@
-[gd_scene load_steps=2 format=3 uid="uid://b3q7r5gqcxlfw"]
+[gd_scene load_steps=6 format=3 uid="uid://b3q7r5gqcxlfw"]
 
-[ext_resource type="Script" uid="uid://cbqhco7kvvlxd" path="res://scripts/MainHybrid.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://cbqhco7kvvlxd" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://b2c3xnl3xf8j4" path="res://scripts/DiscreteTrafficSimulator.gd" id="2_discrete"]
+[ext_resource type="Script" uid="uid://ddjkfayr1jtq2" path="res://scripts/SpawnSystem.gd" id="3_spawn"]
+[ext_resource type="Script" uid="uid://dagsj22jqhrft" path="res://scripts/Analytics.gd" id="4_analytics"]
+[ext_resource type="Script" uid="uid://bdqfgfhj8v8x6" path="res://scripts/CameraController.gd" id="5_camera"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
+
+[node name="DiscreteTrafficSimulator" type="Node"]
+script = ExtResource("2_discrete")
+
+[node name="SpawnSystem" type="Node3D"]
+script = ExtResource("3_spawn")
+
+[node name="Analytics" type="Node"]
+script = ExtResource("4_analytics")
+
+[node name="CameraController" type="Node"]
+script = ExtResource("5_camera")
