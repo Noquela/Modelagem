@@ -9,6 +9,13 @@ var event_scheduler: DiscreteEventScheduler
 var simulation_clock: SimulationClock
 var vehicle_manager: VehicleEventManager
 var traffic_manager: DiscreteTrafficManager
+var hybrid_renderer: HybridRenderer
+var hybrid_debug_ui: HybridDebugUI
+
+# Componentes integrados do simulator_3d
+var spawn_system: DiscreteSpawnSystem
+var analytics: Control
+var ui_controller: Control
 
 # Estado da simulação
 var is_running: bool = false
@@ -31,8 +38,13 @@ signal stats_updated(stats: Dictionary)
 
 func _ready():
 	setup_simulation()
+	await get_tree().process_frame  # Aguardar components serem criados
+	connect_external_components()
 	create_test_events()  # Para validar Sprint 1
-	print("DiscreteTrafficSimulator initialized")
+	
+	# INICIAR SIMULAÇÃO AUTOMATICAMENTE
+	start_simulation()
+	print("🎯 DiscreteTrafficSimulator initialized and STARTED")
 
 func _process(delta):
 	if not is_running:
@@ -47,15 +59,72 @@ func setup_simulation():
 	# Criar componentes principais
 	simulation_clock = SimulationClock.new(0.0)
 	event_scheduler = DiscreteEventScheduler.new(simulation_clock)
+	
+	# Configurar referência do scheduler para este simulador
+	event_scheduler.traffic_simulator = self
+	
+	# Criar sistema híbrido de renderização
+	hybrid_renderer = HybridRenderer.new()
+	hybrid_renderer.name = "HybridRenderer"
+	add_child(hybrid_renderer)
+	
+	# Criar traffic_manager com referência ao HybridRenderer
+	traffic_manager = DiscreteTrafficManager.new(event_scheduler, simulation_clock, hybrid_renderer)
+	
+	# Criar vehicle_manager com referência ao traffic_manager
 	vehicle_manager = VehicleEventManager.new(event_scheduler, simulation_clock)
-	traffic_manager = DiscreteTrafficManager.new(event_scheduler, simulation_clock)
+	vehicle_manager.traffic_manager = traffic_manager
 	
 	# Conectar sinais
 	event_scheduler.event_executed.connect(_on_event_executed)
 	event_scheduler.entity_created.connect(_on_entity_created)
 	event_scheduler.entity_destroyed.connect(_on_entity_destroyed)
 	
-	print("Simulation components created")
+	print("Simulation components created - Backend Discreto + Frontend Híbrido + Traffic Manager")
+
+func connect_external_components():
+	# Conectar componentes externos do simulator_3d adaptados para eventos discretos
+	spawn_system = get_parent().get_node_or_null("SpawnSystem")
+	analytics = get_parent().get_node_or_null("Analytics") 
+	ui_controller = get_parent().get_node_or_null("Analytics")
+	
+	if spawn_system:
+		print("✅ Connected to DiscreteSpawnSystem")
+	else:
+		print("⚠️ SpawnSystem not found")
+		
+	if analytics:
+		print("✅ Connected to Analytics")
+		# Conectar sinal de estatísticas
+		stats_updated.connect(analytics.update_display)
+	else:
+		print("⚠️ Analytics not found")
+		
+	if ui_controller:
+		print("✅ Connected to UI Controller")
+	else:
+		print("⚠️ UI Controller not found")
+	
+	# SINCRONIZAR SEMÁFOROS VISUAIS INICIAIS
+	_sync_initial_traffic_lights()
+
+func _sync_initial_traffic_lights():
+	# Agendar sincronização após 0.1s para garantir que visual_scene esteja pronta
+	var sync_event = DiscreteEvent.new(
+		simulation_clock.get_time() + 0.1,
+		DiscreteEvent.EventType.LIGHT_CHANGE,
+		-1,
+		{
+			"change_id": -1,
+			"main_road_state": traffic_manager.main_road_state,
+			"cross_road_state": traffic_manager.cross_road_state,
+			"cycle_time": 0.0,
+			"initial_sync": true
+		}
+	)
+	
+	event_scheduler.schedule_event(sync_event)
+	print("🚦 Initial traffic lights sync scheduled for +0.1s")
 
 func update_simulation(delta_time: float):
 	# Atualizar relógio
@@ -137,6 +206,33 @@ func predict_entity_position(entity_id: int, target_time: float) -> Vector3:
 func get_future_events_for_entity(entity_id: int, time_window: float) -> Array[DiscreteEvent]:
 	return event_scheduler.get_future_events_for_entity(entity_id, time_window)
 
+func get_hybrid_renderer() -> HybridRenderer:
+	return hybrid_renderer
+
+func get_active_car(car_id: int) -> DiscreteCar:
+	if vehicle_manager and vehicle_manager.active_cars.has(car_id):
+		return vehicle_manager.active_cars[car_id]
+	return null
+
+func toggle_hybrid_debug_ui():
+	if not hybrid_debug_ui:
+		# Criar UI híbrida
+		hybrid_debug_ui = HybridDebugUI.new()
+		hybrid_debug_ui.name = "HybridDebugUI"
+		
+		# Adicionar como overlay full-screen
+		var ui_node = get_node("UI")
+		if ui_node:
+			ui_node.add_child(hybrid_debug_ui)
+			hybrid_debug_ui.anchors_preset = Control.PRESET_FULL_RECT
+		
+		print("🔧 Hybrid Debug UI ENABLED - Backend/Frontend separation visible")
+	else:
+		# Remover UI híbrida
+		hybrid_debug_ui.queue_free()
+		hybrid_debug_ui = null
+		print("🔧 Hybrid Debug UI DISABLED")
+
 ## ============================================================================
 ## ESTATÍSTICAS
 ## ============================================================================
@@ -145,13 +241,39 @@ func get_simulation_statistics() -> Dictionary:
 	var scheduler_stats = event_scheduler.get_statistics()
 	var clock_stats = simulation_clock.get_status()
 	
-	return {
+	# Estatísticas do sistema integrado
+	var spawn_stats = {}
+	if spawn_system:
+		spawn_stats = spawn_system.get_spawn_statistics()
+	
+	# Estatísticas de personalidades dos motoristas
+	var personality_stats = {}
+	if vehicle_manager:
+		personality_stats = vehicle_manager.get_personality_distribution()
+	
+	# Combinar todas as estatísticas
+	var stats = {
 		"is_running": is_running,
 		"frame_count": frame_count,
 		"simulation_speed": simulation_speed,
 		"scheduler": scheduler_stats,
-		"clock": clock_stats
+		"clock": clock_stats,
+		"spawn": spawn_stats,
+		"personality_stats": personality_stats,
+		"fps": Engine.get_frames_per_second(),
+		"active_cars": scheduler_stats.get("active_entities", 0),
+		"total_cars_spawned": spawn_stats.get("total_spawned", 0),
+		"throughput": 0.0,  # Calculado depois
+		"average_wait_time": 0.0,  # Calculado pelo traffic_manager
+		"max_queue_length": 0
 	}
+	
+	# Dados do traffic manager se disponível
+	if traffic_manager:
+		var traffic_stats = traffic_manager.get_debug_info()
+		stats["traffic_manager"] = traffic_stats
+	
+	return stats
 
 ## ============================================================================
 ## HANDLERS DE EVENTOS
@@ -177,7 +299,11 @@ func _on_event_executed(event: DiscreteEvent):
 		DiscreteEvent.EventType.CAR_DEPARTURE:
 			vehicle_manager.handle_car_departure_event(event.data)
 		DiscreteEvent.EventType.LIGHT_CHANGE:
-			traffic_manager.handle_light_change_event(event.data)
+			# Verificar se é sincronização inicial
+			if event.data.get("initial_sync", false):
+				_handle_initial_sync_event(event.data)
+			else:
+				traffic_manager.handle_light_change_event(event.data)
 		DiscreteEvent.EventType.QUEUE_PROCESS:
 			traffic_manager.handle_queue_processing_event(event.data)
 		_:
@@ -191,6 +317,17 @@ func _on_entity_destroyed(entity_id: int):
 	# Handler para destruição de entidade  
 	print("Entity destroyed: %d" % entity_id)
 
+func _handle_initial_sync_event(event_data: Dictionary):
+	# Sincronizar semáforos visuais no primeiro ciclo
+	var main_state = event_data.main_road_state
+	var cross_state = event_data.cross_road_state
+	
+	if traffic_manager:
+		traffic_manager._update_visual_traffic_lights(main_state, cross_state)
+		print("🚦 INITIAL SYNC completed: Main=%s Cross=%s" % [main_state, cross_state])
+	else:
+		print("⚠️ TrafficManager not found for initial sync")
+
 ## ============================================================================
 ## SISTEMA DE TESTES DO SPRINT 1
 ## ============================================================================
@@ -198,23 +335,23 @@ func _on_entity_destroyed(entity_id: int):
 func create_test_events():
 	print("Creating test events for Sprint 2 validation...")
 	
-	# SPRINT 2: Testes de veículos reais com lógica completa
-	print("Scheduling realistic vehicle spawns...")
-	vehicle_manager.schedule_periodic_spawns(60.0)  # 1 minuto de spawns
-	
-	# Teste adicional: alguns veículos específicos para debug
-	var test_spawn_times = [2.0, 15.0, 35.0]
+	# SPAWN IMEDIATO para testar movimento
+	var immediate_spawns = [0.5, 1.0, 1.5]  # Spawns imediatos após 0.5s
 	var test_directions = [DiscreteCar.Direction.LEFT_TO_RIGHT, DiscreteCar.Direction.RIGHT_TO_LEFT, DiscreteCar.Direction.BOTTOM_TO_TOP]
-	var test_personalities = [DiscreteCar.DriverPersonality.AGGRESSIVE, DiscreteCar.DriverPersonality.NORMAL, DiscreteCar.DriverPersonality.CONSERVATIVE]
+	var test_personalities = [DiscreteCar.DriverPersonality.NORMAL, DiscreteCar.DriverPersonality.AGGRESSIVE, DiscreteCar.DriverPersonality.CONSERVATIVE]
 	
-	for i in range(test_spawn_times.size()):
+	for i in range(immediate_spawns.size()):
 		vehicle_manager.schedule_vehicle_spawn(
-			test_spawn_times[i],
+			immediate_spawns[i],
 			test_directions[i],
 			test_personalities[i]
 		)
 	
-	print("Created realistic vehicle test events")
+	# SPRINT 2: Testes de veículos reais com lógica completa
+	print("Scheduling realistic vehicle spawns...")
+	vehicle_manager.schedule_periodic_spawns(60.0)  # 1 minuto de spawns
+	
+	print("Created immediate test spawns + realistic vehicle events")
 
 func run_validation_test():
 	print("=== SPRINT 3 VALIDATION TEST ===")
@@ -240,7 +377,12 @@ func run_validation_test():
 	print(traffic_manager.get_debug_info())
 	print("Queue sizes: %s" % traffic_manager.get_queue_sizes())
 	print("Total queued cars: %d" % traffic_manager.get_total_queued_cars())
-	
+
+## ============================================================================
+## TESTES E VALIDAÇÃO (comentados para versão final)
+## ============================================================================
+
+func debug_complete_validation():
 	# Test 5: Estados dos semáforos
 	print("\nTest 5: Traffic light states")
 	print("Main road (West/East): %s" % traffic_manager.main_road_state)
@@ -275,3 +417,5 @@ func _input(event):
 				create_test_events()
 			KEY_D:
 				event_scheduler.print_debug_info()
+			KEY_H:
+				toggle_hybrid_debug_ui()
