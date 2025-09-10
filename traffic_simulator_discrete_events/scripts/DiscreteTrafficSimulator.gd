@@ -64,13 +64,18 @@ func setup_simulation():
 	# Configurar referência do scheduler para este simulador
 	event_scheduler.traffic_simulator = self
 	
-	# Criar sistema híbrido de renderização
-	hybrid_renderer = HybridRenderer.new()
-	hybrid_renderer.name = "HybridRenderer"
-	add_child(hybrid_renderer)
+	# Criar sistema híbrido de renderização (apenas se não estiver em modo híbrido)
+	if not hybrid_mode:
+		hybrid_renderer = HybridRenderer.new()
+		hybrid_renderer.name = "HybridRenderer"
+		add_child(hybrid_renderer)
+		print("✅ HybridRenderer antigo criado (modo não-híbrido)")
+	else:
+		print("✅ Modo híbrido - usando HybridTrafficSystem em vez de HybridRenderer")
 	
-	# Criar traffic_manager com referência ao HybridRenderer
-	traffic_manager = DiscreteTrafficManager.new(event_scheduler, simulation_clock, hybrid_renderer)
+	# Criar traffic_manager com referência ao HybridRenderer (se existir)
+	var renderer_for_manager = hybrid_renderer if not hybrid_mode else null
+	traffic_manager = DiscreteTrafficManager.new(event_scheduler, simulation_clock, renderer_for_manager)
 	
 	# Criar vehicle_manager com referência ao traffic_manager
 	vehicle_manager = VehicleEventManager.new(event_scheduler, simulation_clock)
