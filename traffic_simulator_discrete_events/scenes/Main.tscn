@@ -1,77 +1,26 @@
-[gd_scene load_steps=3 format=3 uid="uid://b3q7r5gqcxlfw"]
+[gd_scene load_steps=6 format=3 uid="uid://b3q7r5gqcxlfw"]
 
 [ext_resource type="Script" uid="uid://lq5r3viv1fqy" path="res://scripts/DiscreteTrafficSimulator.gd" id="1_kqp8j"]
-[ext_resource type="Script" uid="uid://c5je004s6x2ks" path="res://scripts/DiscreteUI.gd" id="2_ui_script"]
+[ext_resource type="Script" uid="uid://cbqhco7kvvlxd" path="res://scripts/MainHybrid.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://hhr4ko3hlghj" path="res://scripts/CameraController.gd" id="3_camera"]
+[ext_resource type="Script" uid="uid://0yfbp0ak0vmg" path="res://scripts/SpawnSystem.gd" id="4_spawn_system"]
+[ext_resource type="Script" uid="uid://xjambsxanfu0" path="res://scripts/Analytics.gd" id="5_analytics"]
 
 [node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="DiscreteTrafficSimulator" type="Node" parent="."]
 script = ExtResource("1_kqp8j")
 
-[node name="UI" type="Control" parent="."]
+[node name="SpawnSystem" type="Node3D" parent="."]
+script = ExtResource("4_spawn_system")
+
+[node name="CameraController" type="Node3D" parent="."]
+script = ExtResource("3_camera")
+
+[node name="Camera3D" type="Camera3D" parent="CameraController"]
+
+[node name="Analytics" type="Control" parent="."]
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("2_ui_script")
-
-[node name="InfoPanel" type="Panel" parent="UI"]
-layout_mode = 0
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = -200.0
-offset_right = 400.0
-offset_bottom = -10.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="UI/InfoPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = -10.0
-offset_bottom = -10.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Title" type="Label" parent="UI/InfoPanel/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "🚦 Traffic Simulator - Discrete Events (Sprint 1)"
-
-[node name="HSeparator" type="HSeparator" parent="UI/InfoPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="TimeLabel" type="Label" parent="UI/InfoPanel/VBoxContainer"]
-layout_mode = 2
-text = "Simulation Time: 00:00.000"
-
-[node name="StatusLabel" type="Label" parent="UI/InfoPanel/VBoxContainer"]
-layout_mode = 2
-text = "Status: Stopped"
-
-[node name="EventsLabel" type="Label" parent="UI/InfoPanel/VBoxContainer"]
-layout_mode = 2
-text = "Pending Events: 0"
-
-[node name="HSeparator2" type="HSeparator" parent="UI/InfoPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="Instructions" type="Label" parent="UI/InfoPanel/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "Controls:
-[1] Start  [2] Stop  [3] Pause/Resume
-[4] Speed x2  [5] Speed x0.5
-[V] Run Validation Test
-[R] Reset  [D] Debug Info"
-
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 10, 10)
-
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 10, 0)
-shadow_enabled = true
+anchors_preset = 0
+script = ExtResource("5_analytics")

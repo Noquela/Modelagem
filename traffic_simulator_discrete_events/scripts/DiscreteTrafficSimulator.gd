@@ -20,6 +20,7 @@ var ui_controller: Control
 # Estado da simulação
 var is_running: bool = false
 var simulation_speed: float = 1.0
+var hybrid_mode: bool = false
 
 # Timer para updates regulares
 var update_timer: float = 0.0
@@ -395,6 +396,11 @@ func debug_complete_validation():
 	event_scheduler.print_debug_info()
 	
 	print("\n=== SPRINT 3 VALIDATION COMPLETE ===")
+
+func set_hybrid_mode(enabled: bool):
+	"""Configura simulador para modo híbrido"""
+	hybrid_mode = enabled
+	print("🔗 DiscreteTrafficSimulator: Hybrid mode %s" % ("ENABLED" if enabled else "DISABLED"))
 
 ## Input handling para testes
 func _input(event):

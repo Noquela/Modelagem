@@ -3,6 +3,7 @@ class_name DiscreteTrafficManager
 
 var scheduler: DiscreteEventScheduler
 var simulation_clock: SimulationClock
+var hybrid_renderer: HybridRenderer
 var traffic_queues: Dictionary = {}
 
 # Estados dos semáforos - EXATOS do simulador original
@@ -21,9 +22,10 @@ const TRAFFIC_LIGHT_CYCLE = {
 var cycle_start_time: float = 0.0
 var next_light_change_id: int = 1
 
-func _init(event_scheduler: DiscreteEventScheduler, clock: SimulationClock):
+func _init(event_scheduler: DiscreteEventScheduler, clock: SimulationClock, renderer: HybridRenderer = null):
 	scheduler = event_scheduler
 	simulation_clock = clock
+	hybrid_renderer = renderer
 	cycle_start_time = clock.get_time()
 	
 	# Criar filas para cada direção
@@ -31,8 +33,15 @@ func _init(event_scheduler: DiscreteEventScheduler, clock: SimulationClock):
 	traffic_queues[DiscreteCar.Direction.RIGHT_TO_LEFT] = TrafficQueue.new("East")
 	traffic_queues[DiscreteCar.Direction.BOTTOM_TO_TOP] = TrafficQueue.new("South")
 	
+	# Configurar sistema de eventos nas filas
+	for queue in traffic_queues.values():
+		queue.set_event_system(scheduler, clock)
+	
 	# Agendar todos os eventos de mudança de semáforo do ciclo
 	_schedule_complete_light_cycle()
+	
+	# SINCRONIZAR SEMÁFOROS VISUAIS será feito pelo simulator quando estiver pronto
+	print("🚦 TrafficManager initialized with states: Main=%s Cross=%s" % [main_road_state, cross_road_state])
 
 func _schedule_complete_light_cycle():
 	var current_time = simulation_clock.get_time()
@@ -86,6 +95,9 @@ func handle_light_change_event(event_data: Dictionary):
 		old_main, new_main_state,
 		old_cross, new_cross_state
 	])
+	
+	# SINCRONIZAR SEMÁFOROS VISUAIS COM EVENTOS DISCRETOS
+	_update_visual_traffic_lights(new_main_state, new_cross_state)
 	
 	# Processar filas quando semáforo fica verde
 	_process_queues_on_green_light(old_main, new_main_state, old_cross, new_cross_state)
@@ -233,3 +245,96 @@ func get_debug_info() -> String:
 		queue_info.get("East", 0), 
 		queue_info.get("South", 0)
 	]
+
+## ============================================================================
+## SINCRONIZAÇÃO COM SEMÁFOROS VISUAIS
+## ============================================================================
+
+func _update_visual_traffic_lights(main_state: String, cross_state: String):
+	# Verificar se temos referência do HybridRenderer
+	if not hybrid_renderer:
+		print("⚠️ HybridRenderer not found - visual traffic lights not updated")
+		return
+	
+	var visual_scene = hybrid_renderer.visual_scene
+	if not visual_scene:
+		print("⚠️ Visual scene not found - visual traffic lights not updated")
+		return
+	
+	# Converter estados string para enum
+	var main_light_state = _string_to_light_state(main_state)
+	var cross_light_state = _string_to_light_state(cross_state)
+	
+	# Encontrar e atualizar semáforos visuais
+	# Semáforos main road (West/East) - S1 e S2
+	var s1 = visual_scene.get_node_or_null("TrafficLight_main_road_west")
+	var s2 = visual_scene.get_node_or_null("TrafficLight_main_road_east")
+	
+	# Semáforo cross road (North/South) - S3
+	var s3 = visual_scene.get_node_or_null("TrafficLight_cross_road_north")
+	
+	# Atualizar estados
+	if s1 and s1.has_method("set_discrete_state"):
+		s1.set_discrete_state(main_light_state)
+	if s2 and s2.has_method("set_discrete_state"):
+		s2.set_discrete_state(main_light_state)
+	if s3 and s3.has_method("set_discrete_state"):
+		s3.set_discrete_state(cross_light_state)
+	
+	print("🚦 Visual lights synced: Main=%s Cross=%s" % [main_state, cross_state])
+
+func _string_to_light_state(state: String) -> int:
+	match state.to_lower():
+		"green": return 2  # LightState.GREEN
+		"yellow": return 1  # LightState.YELLOW
+		"red": return 0    # LightState.RED
+		_: return 0        # Default to RED
+
+## ============================================================================
+## SISTEMA HÍBRIDO - MÉTODOS ADICIONAIS
+## ============================================================================
+
+func force_set_light_states(main_state: String, cross_state: String):
+	"""Força estados dos semáforos (usado pelo sistema híbrido)"""
+	main_road_state = main_state
+	cross_road_state = cross_state
+	
+	# Sincronizar semáforos visuais imediatamente
+	_update_visual_traffic_lights(main_state, cross_state)
+	
+	print("🚦 TrafficManager: Forced light states - Main=%s, Cross=%s" % [main_state, cross_state])
+
+func register_car(car_3d: Node3D):
+	"""Registra carro visual para compatibilidade com sistema híbrido"""
+	if car_3d and car_3d.has_method("get_car_info"):
+		var car_info = car_3d.get_car_info()
+		print("📝 TrafficManager: Car %d registered" % car_info.get("car_id", 0))
+	else:
+		print("📝 TrafficManager: Visual car registered (no ID)")
+
+func unregister_car(car_3d: Node3D):
+	"""Desregistra carro visual para compatibilidade com sistema híbrido"""
+	if car_3d and car_3d.has_method("get_car_info"):
+		var car_info = car_3d.get_car_info()
+		print("📝 TrafficManager: Car %d unregistered" % car_info.get("car_id", 0))
+	else:
+		print("📝 TrafficManager: Visual car unregistered (no ID)")
+
+func get_light_state_for_hybrid_car(direction: int) -> String:
+	"""Retorna estado do semáforo para carro híbrido baseado na direção"""
+	match direction:
+		0, 1:  # LEFT_TO_RIGHT, RIGHT_TO_LEFT (Main road)
+			return main_road_state
+		3:     # BOTTOM_TO_TOP (Cross road)
+			return cross_road_state
+		_:
+			return "red"  # Default to red
+
+func can_car_proceed_hybrid(direction: int) -> bool:
+	"""Verifica se carro pode prosseguir (versão híbrida)"""
+	var light_state = get_light_state_for_hybrid_car(direction)
+	return light_state == "green"
+
+func set_hybrid_mode(enabled: bool):
+	"""Configura TrafficManager para modo híbrido"""
+	print("🔗 TrafficManager: Hybrid mode %s" % ("ENABLED" if enabled else "DISABLED"))
