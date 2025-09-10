@@ -64,7 +64,7 @@ func _insert_event_ordered(event: DiscreteEvent) -> void:
 	var right = future_events.size()
 	
 	while left < right:
-		var mid = (left + right) / 2  # Godot automaticamente converte para int
+		var mid = int((left + right) / 2)
 		if future_events[mid].compare_time(event):
 			left = mid + 1
 		else:

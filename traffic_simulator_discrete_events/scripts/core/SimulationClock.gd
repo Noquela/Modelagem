@@ -77,22 +77,22 @@ func increment_event_count() -> void:
 
 func get_events_per_second() -> float:
 	var elapsed = get_elapsed_time()
-	if elapsed > 0:
-		return total_events_processed / elapsed
+	if elapsed > 0.0:
+		return float(total_events_processed) / elapsed
 	return 0.0
 
 ## Formatação de tempo para display
 func format_time(time_value: float = -1) -> String:
 	var t = time_value if time_value >= 0 else current_time
-	var hours = int(t / 3600)
-	var minutes = int((t % 3600) / 60)
-	var seconds = int(t % 60)
-	var milliseconds = int((t - floor(t)) * 1000)
+	var hours = int(t / 3600.0)
+	var minutes = int(fmod(t, 3600.0) / 60.0)
+	var seconds = int(fmod(t, 60.0))
+	var milliseconds = int((t - floor(t)) * 1000.0)
 	
 	if hours > 0:
-		return "%02d:%02d:%02d.%03d" % [hours, minutes, seconds, milliseconds]
+		return "%02d:%02d:%02d.%03d" % [int(hours), int(minutes), int(seconds), int(milliseconds)]
 	else:
-		return "%02d:%02d.%03d" % [minutes, seconds, milliseconds]
+		return "%02d:%02d.%03d" % [int(minutes), int(seconds), int(milliseconds)]
 
 ## Debug info
 func get_status() -> Dictionary:
