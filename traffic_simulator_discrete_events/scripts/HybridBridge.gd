@@ -5,13 +5,13 @@ extends Node
 ## Responsável por interpolar movimentos e sincronizar estados
 
 var main_system: HybridTrafficSystem
-var traffic_manager: TrafficManager
+var traffic_manager: DiscreteTrafficManager
 var active_animations: Dictionary = {}
 
 signal animation_completed(car_id: int)
 signal movement_started(car_id: int)
 
-func setup_connections(main: HybridTrafficSystem, tm: TrafficManager):
+func setup_connections(main: HybridTrafficSystem, tm: DiscreteTrafficManager):
 	main_system = main
 	traffic_manager = tm
 	print("🌉 HybridBridge conectada aos sistemas")

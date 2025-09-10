@@ -10,9 +10,9 @@ var visual_renderer: VisualRenderer3D
 var hybrid_bridge: HybridBridge
 
 # Componentes 3D originais (mantém sua funcionalidade)
-@onready var traffic_manager: TrafficManager
-@onready var camera_controller: Node3D
-@onready var analytics: Control
+var traffic_manager: DiscreteTrafficManager
+var camera_controller: Node3D
+var analytics: Control
 
 # Estado do sistema
 var is_hybrid_mode: bool = true
@@ -268,15 +268,19 @@ func setup_connections():
 	"""Configura conexões entre componentes"""
 	print("🔌 Configurando conexões híbridas...")
 	
-	# Encontrar componentes existentes
-	traffic_manager = get_parent().get_node_or_null("TrafficManager")
-	camera_controller = get_parent().get_node_or_null("CameraController")
-	analytics = get_parent().get_node_or_null("Analytics")
-	
-	# Se não encontrou, criar TrafficManager básico
-	if not traffic_manager:
+	# Usar traffic_manager do discrete_simulator se disponível
+	if discrete_simulator and discrete_simulator.traffic_manager:
+		traffic_manager = discrete_simulator.traffic_manager
+		print("✅ Using DiscreteTrafficManager from simulator")
+	else:
+		# Criar TrafficManager básico
 		traffic_manager = _create_basic_traffic_manager()
 		add_child(traffic_manager)
+		print("✅ Created basic traffic manager")
+	
+	# Encontrar componentes de câmera e analytics se existirem
+	camera_controller = get_parent().get_node_or_null("CameraController")
+	analytics = get_parent().get_node_or_null("Analytics")
 	
 	# Configurar ponte
 	hybrid_bridge.setup_connections(self, traffic_manager)
@@ -286,13 +290,13 @@ func setup_connections():
 	
 	print("✅ Conexões configuradas")
 
-func _create_basic_traffic_manager() -> Node:
+func _create_basic_traffic_manager() -> DiscreteTrafficManager:
 	"""Cria TrafficManager básico se não existir"""
-	var tm = Node.new()
-	tm.name = "BasicTrafficManager"
+	var simulation_clock = SimulationClock.new(0.0)
+	var event_scheduler = DiscreteEventScheduler.new(simulation_clock)
 	
-	# Adicionar método force_set_light_states
-	tm.set_script(load("res://scripts/BasicTrafficManager.gd"))
+	var tm = DiscreteTrafficManager.new(event_scheduler, simulation_clock, null)
+	tm.name = "BasicDiscreteTrafficManager"
 	
 	return tm
 
