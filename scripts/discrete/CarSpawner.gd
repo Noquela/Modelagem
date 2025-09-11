@@ -8,7 +8,7 @@ const SPAWN_CONFIG = {
 	# TAXAS REDUZIDAS PARA PERFORMANCE
 	"west_east_rate": 0.008,    # REDUZIDO - era 0.055
 	"east_west_rate": 0.008,    # REDUZIDO - era 0.055
-	"south_north_rate": 0.025   # AUMENTADO para ser mais visível - igual às outras direções
+	"south_north_rate": 0.005   # AJUSTADO: menor que as outras mas não excessivamente baixo
 }
 
 # DIREÇÕES DO PROJETO ORIGINAL
