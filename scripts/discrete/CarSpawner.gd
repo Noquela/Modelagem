@@ -3,19 +3,19 @@ extends Node
 # CONFIGURAÇÃO IGUAL AO PROJETO ORIGINAL
 const SPAWN_CONFIG = {
 	"base_spawn_rate": 0.005,   # REDUZIDO DRASTICAMENTE - era 0.02
-	"min_spawn_distance": 10.0,
-	"max_queue_length": 4,
-	# TAXAS REDUZIDAS PARA PERFORMANCE
+	"min_spawn_distance": 8.0,  # REDUZIDO: 12.0 → 8.0 para spawns mais próximos e filas densas
+	"max_queue_length": 10,     # AUMENTADO: 6 → 10 para filas muito maiores
+	# TAXAS BALANCEADAS PARA SPAWN CONSISTENTE
 	"west_east_rate": 0.008,    # REDUZIDO - era 0.055
 	"east_west_rate": 0.008,    # REDUZIDO - era 0.055
-	"south_north_rate": 0.005   # AJUSTADO: menor que as outras mas não excessivamente baixo
+	"south_north_rate": 0.025   # AUMENTADO: 0.012 → 0.025 para spawn mais frequente
 }
 
 # DIREÇÕES DO PROJETO ORIGINAL
 enum Direction { LEFT_TO_RIGHT, RIGHT_TO_LEFT, TOP_TO_BOTTOM, BOTTOM_TO_TOP }
 
 var spawn_points = []
-var max_cars: int = 15  # REDUZIDO - era 50
+var max_cars: int = 30  # PADRÃO AUMENTADO: 15 → 30
 var current_cars: int = 0
 var total_cars_spawned: int = 0
 
@@ -109,30 +109,32 @@ func spawn_cars():
 	if current_cars >= max_cars:
 		return
 	
-	# Para cada spawn point, tentar spawnar um carro
-	for spawn_point in spawn_points:
-		if should_spawn_car(spawn_point):
-			# Escolher faixa dinamicamente para direções com 2 faixas
-			var primary_lane = choose_lane_for_direction(spawn_point.direction)
-			
-			# Ajustar posição para a faixa escolhida
-			var modified_spawn_point = spawn_point.duplicate()
-			modified_spawn_point.lane = primary_lane
-			modified_spawn_point.position = adjust_spawn_position_for_lane(spawn_point, primary_lane)
-			
-			spawn_car_at_point(modified_spawn_point)
+	# SISTEMA INTELIGENTE: Verificar ocupação por direção antes de spawnar
+	var direction_occupancy = calculate_direction_occupancy()
+	
+	# Ordenar spawn points por prioridade (menos ocupadas primeiro)
+	var prioritized_spawns = prioritize_spawn_points(direction_occupancy)
+	
+	# SPAWN BALANCEADO: Tentar spawnar apenas onde há espaço
+	for spawn_data in prioritized_spawns:
+		var spawn_point = spawn_data.spawn_point
+		var occupancy = spawn_data.occupancy
 		
-		# SPAWN EXTRA para direções com 2 faixas (tentar ambas as faixas)
-		var extra_spawn_chance = 0.4
-		if spawn_point.direction in [Direction.LEFT_TO_RIGHT, Direction.RIGHT_TO_LEFT] and randf() < extra_spawn_chance:
-			for alternative_lane in [0, 1]:
-				var primary_lane = choose_lane_for_direction(spawn_point.direction)
-				if alternative_lane != primary_lane:
-					var modified_spawn_point = spawn_point.duplicate()
-					modified_spawn_point.lane = alternative_lane
-					modified_spawn_point.position = adjust_spawn_position_for_lane(spawn_point, alternative_lane)
-					spawn_car_at_point(modified_spawn_point)
-					break
+		# Se direção está muito cheia (>80% da fila máxima), pular
+		if occupancy > 0.8:
+			if total_cars_spawned % 10 == 0:  # Debug ocasional
+				var dir_name = get_direction_name(spawn_point.direction)
+				print("⏸️ Spawn pausado em %s: ocupação %.1f%%" % [dir_name, occupancy * 100])
+			continue
+		
+		# Tentar spawnar apenas se probabilidade permitir E há espaço
+		if should_spawn_car(spawn_point):
+			var success = attempt_spawn_at_point(spawn_point)
+			if success:
+				break  # IMPORTANTE: Spawnar apenas 1 por tick para evitar sobrecarga
+	
+	# SPAWN EXTRA apenas para direções com baixa ocupação (<50%)
+	attempt_extra_spawns(direction_occupancy)
 
 func should_spawn_car(spawn_point: Dictionary) -> bool:
 	# ALGORITMO COM TAXAS ESPECÍFICAS POR DIREÇÃO
@@ -221,43 +223,67 @@ func can_spawn_at_position(pos: Vector3, direction: int) -> bool:
 	if not active_cars:
 		return true
 	
-	# NOVA LÓGICA: Contar carros na mesma direção para permitir formação de filas
+	# VERIFICAÇÃO RIGOROSA: Verificar TODAS as posições dos carros existentes
+	for car_id in active_cars.keys():
+		var car = active_cars[car_id]
+		if not car or not car.has("target_position"):
+			continue
+			
+		var car_pos = car.target_position
+		
+		# VERIFICAÇÃO GLOBAL: Distância mínima absoluta entre qualquer carro e spawn
+		# Usar distância mínima mais permissiva para direção N-S devido à geometria da interseção
+		var min_distance = SPAWN_CONFIG.min_spawn_distance
+		if direction == Direction.BOTTOM_TO_TOP:
+			min_distance = SPAWN_CONFIG.min_spawn_distance * 0.75  # 25% mais permissivo para N-S
+		
+		var distance_to_car = pos.distance_to(car_pos)
+		if distance_to_car < min_distance:
+			# Debug: mostrar quando bloqueia spawn por proximidade
+			if total_cars_spawned % 5 == 0:  # Debug ocasional
+				print("🚫 Spawn bloqueado: carro %s muito próximo (%.1fm < %.1fm)" % [car_id, distance_to_car, min_distance])
+			return false
+	
+	# VERIFICAÇÃO ESPECÍFICA POR DIREÇÃO: Carros na mesma direção/faixa
 	var cars_in_direction = []
 	for car_id in active_cars.keys():
 		var car = active_cars[car_id]
 		if car.direction_enum == direction:
 			cars_in_direction.append(car)
 	
-	# Se não há carros na direção, pode spawnar
-	if cars_in_direction.size() == 0:
-		return true
-	
-	# LÓGICA DE FILA: Permitir até 4 carros enfileirados (max_queue_length)
+	# LÓGICA DE FILA: Limitar carros por direção
 	if cars_in_direction.size() >= SPAWN_CONFIG.max_queue_length:
+		if total_cars_spawned % 5 == 0:  # Debug ocasional
+			print("🚫 Spawn bloqueado: muitos carros na direção (%d/%d)" % [cars_in_direction.size(), SPAWN_CONFIG.max_queue_length])
 		return false
 	
-	# Verificar distância mínima apenas do carro mais próximo ao spawn
-	var closest_distance = INF
+	# VERIFICAÇÃO DE FAIXA ESPECÍFICA: Carros na mesma linha de spawn
 	for car in cars_in_direction:
-		var distance = 0.0
-		match direction:
-			0:  # LEFT_TO_RIGHT
-				if car.target_position.x > pos.x:  # Carro à frente
-					distance = car.target_position.x - pos.x
-			1:  # RIGHT_TO_LEFT  
-				if car.target_position.x < pos.x:  # Carro à frente
-					distance = pos.x - car.target_position.x
-			3:  # BOTTOM_TO_TOP
-				if car.target_position.z < pos.z:  # Carro à frente
-					distance = pos.z - car.target_position.z
+		var car_pos = car.target_position
+		var lateral_distance = 0.0
+		var forward_distance = 0.0
 		
-		if distance > 0 and distance < closest_distance:
-			closest_distance = distance
-	
-	# DISTÂNCIA REDUZIDA para permitir filas mais densas
-	var min_distance_for_queue = 3.0  # Menor que os 10.0 originais
-	if closest_distance < min_distance_for_queue:
-		return false
+		match direction:
+			0:  # LEFT_TO_RIGHT (West → East)
+				lateral_distance = abs(car_pos.z - pos.z)  # Distância lateral (norte-sul)
+				forward_distance = car_pos.x - pos.x       # Distância frontal (leste-oeste)
+			1:  # RIGHT_TO_LEFT (East → West)
+				lateral_distance = abs(car_pos.z - pos.z)  # Distância lateral (norte-sul)
+				forward_distance = pos.x - car_pos.x       # Distância frontal (oeste-leste)
+			3:  # BOTTOM_TO_TOP (South → North)
+				lateral_distance = abs(car_pos.x - pos.x)  # Distância lateral (leste-oeste)
+				forward_distance = pos.z - car_pos.z       # Distância frontal (norte-sul)
+		
+		# Se o carro está na mesma faixa (lateral < 2m) e próximo na frente
+		# Distâncias frontais específicas por direção - FILAS DENSAS
+		var min_forward_distance = 6.0  # REDUZIDO: 15.0 → 6.0 para filas mais próximas
+		if direction == Direction.BOTTOM_TO_TOP:
+			min_forward_distance = 4.0  # REDUZIDO: 8.0 → 4.0 para N-S ainda mais denso
+		
+		if lateral_distance < 2.0 and forward_distance > 0 and forward_distance < min_forward_distance:
+			if total_cars_spawned % 5 == 0:  # Debug ocasional
+				print("🚫 Spawn bloqueado: carro na faixa a %.1fm à frente (min: %.1f)" % [forward_distance, min_forward_distance])
+			return false
 	
 	return true
 
@@ -266,3 +292,91 @@ func generate_car_id() -> String:
 
 func set_max_cars(maximum: int):
 	max_cars = clamp(maximum, 1, 200)
+
+# SISTEMA INTELIGENTE DE SPAWN - FUNÇÕES AUXILIARES
+
+func calculate_direction_occupancy() -> Dictionary:
+	# Calcular quantos carros há em cada direção
+	var discrete_sim = get_node("/root/DiscreteSimulation")
+	if not discrete_sim:
+		return {}
+	
+	var active_cars = discrete_sim.get("active_cars")
+	if not active_cars:
+		return {}
+	
+	var direction_counts = {
+		Direction.LEFT_TO_RIGHT: 0,
+		Direction.RIGHT_TO_LEFT: 0,
+		Direction.BOTTOM_TO_TOP: 0
+	}
+	
+	# Contar carros por direção
+	for car_id in active_cars.keys():
+		var car = active_cars[car_id]
+		if car.has("direction_enum"):
+			var dir = car.direction_enum
+			if direction_counts.has(dir):
+				direction_counts[dir] += 1
+	
+	# Converter para percentual de ocupação (baseado na fila máxima)
+	var occupancy = {}
+	for direction in direction_counts.keys():
+		occupancy[direction] = float(direction_counts[direction]) / float(SPAWN_CONFIG.max_queue_length)
+	
+	return occupancy
+
+func prioritize_spawn_points(occupancy: Dictionary) -> Array:
+	# Criar lista com spawn points e suas ocupações
+	var spawn_list = []
+	for spawn_point in spawn_points:
+		var dir = spawn_point.direction
+		var occ = occupancy.get(dir, 0.0)
+		spawn_list.append({
+			"spawn_point": spawn_point,
+			"occupancy": occ
+		})
+	
+	# Ordenar por ocupação (menos ocupadas primeiro)
+	spawn_list.sort_custom(func(a, b): return a.occupancy < b.occupancy)
+	
+	return spawn_list
+
+func attempt_spawn_at_point(spawn_point: Dictionary) -> bool:
+	# Escolher faixa dinamicamente para direções com 2 faixas
+	var primary_lane = choose_lane_for_direction(spawn_point.direction)
+	
+	# Ajustar posição para a faixa escolhida
+	var modified_spawn_point = spawn_point.duplicate()
+	modified_spawn_point.lane = primary_lane
+	modified_spawn_point.position = adjust_spawn_position_for_lane(spawn_point, primary_lane)
+	
+	# Tentar spawnar (retorna true se bem-sucedido)
+	var initial_count = current_cars
+	spawn_car_at_point(modified_spawn_point)
+	return current_cars > initial_count
+
+func attempt_extra_spawns(occupancy: Dictionary):
+	# SPAWN EXTRA apenas para direções com ocupação baixa
+	for spawn_point in spawn_points:
+		var dir = spawn_point.direction
+		var occ = occupancy.get(dir, 0.0)
+		
+		# Só spawn extra se ocupação < 50% E direção tem 2 faixas
+		if occ < 0.5 and spawn_point.direction in [Direction.LEFT_TO_RIGHT, Direction.RIGHT_TO_LEFT]:
+			if randf() < 0.2:  # 20% chance (reduzido de 40%)
+				for alternative_lane in [0, 1]:
+					var primary_lane = choose_lane_for_direction(spawn_point.direction)
+					if alternative_lane != primary_lane:
+						var modified_spawn_point = spawn_point.duplicate()
+						modified_spawn_point.lane = alternative_lane
+						modified_spawn_point.position = adjust_spawn_position_for_lane(spawn_point, alternative_lane)
+						spawn_car_at_point(modified_spawn_point)
+						return  # Apenas 1 spawn extra por tick
+
+func get_direction_name(direction: int) -> String:
+	match direction:
+		Direction.LEFT_TO_RIGHT: return "West→East"
+		Direction.RIGHT_TO_LEFT: return "East→West"
+		Direction.BOTTOM_TO_TOP: return "South→North"
+		_: return "Unknown"

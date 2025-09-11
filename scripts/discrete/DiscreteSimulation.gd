@@ -82,10 +82,10 @@ func _on_car_spawned(car_data):
 		"last_update": simulation_clock.get_simulation_time(),
 		"last_decision_time": 0.0,
 		"stopped_at_light": false,
-		# IDM-based DISCRETE parameters
+		# IDM-based DISCRETE parameters - FILAS DENSAS
 		"personality": {
 			"aggressiveness": randf_range(0.5, 1.5),  # Multiplicador de aceleração
-			"following_distance": randf_range(2.0, 4.0),  # Distância preferida de seguimento
+			"following_distance": randf_range(0.8, 1.5),  # REDUZIDO: 2.0-4.0 → 0.8-1.5 para filas mais densas
 			"reaction_time": randf_range(0.8, 1.5),  # Tempo de reação
 			"patience": randf_range(0.5, 2.0)  # Paciência em semáforos
 		}
@@ -151,7 +151,7 @@ func make_driving_decision(car: Dictionary, _current_time: float) -> Dictionary:
 	var decision = {
 		"action": "maintain",  # "accelerate", "maintain", "decelerate", "stop"
 		"new_speed_state": car.speed_state,
-		"target_distance": 4.0  # Distância MAIOR para movimento mais contínuo
+		"target_distance": 2.0  # REDUZIDO: 4.0 → 2.0 para filas mais compactas
 	}
 	
 	# 1. Analisar situação à frente
@@ -169,15 +169,15 @@ func make_driving_decision(car: Dictionary, _current_time: float) -> Dictionary:
 		decision.new_speed_state = "stopped"
 		decision.target_distance = 0.0
 	elif gap_to_leader < car.personality.following_distance:
-		# Muito próximo do carro da frente - MELHOR DETECÇÃO DE COLISÃO
-		if gap_to_leader < 2.0:  # MUITO próximo - parar completamente
+		# Muito próximo do carro da frente - FILAS MAIS DENSAS
+		if gap_to_leader < 0.8:  # REDUZIDO: 2.0 → 0.8 - parar apenas quando muito próximo
 			decision.action = "stop"
 			decision.new_speed_state = "stopped"
 			decision.target_distance = 0.0
-		else:  # Próximo mas não crítico
+		else:  # Próximo mas não crítico - continuar devagar para formar fila
 			decision.action = "decelerate"
 			decision.new_speed_state = "decelerating" 
-			decision.target_distance = 1.0  # Movimento mínimo
+			decision.target_distance = 0.5  # REDUZIDO: 1.0 → 0.5 movimento muito pequeno para formar fila
 	elif car.current_speed < car.desired_speed * 0.9:
 		# Abaixo da velocidade desejada
 		decision.action = "accelerate"
@@ -224,16 +224,26 @@ func apply_discrete_decision(car: Dictionary, decision: Dictionary):
 		"stopped":
 			car.current_speed = 0.0
 	
-	# Calcular nova posição alvo baseada na direção e distância
+	# Calcular nova posição alvo baseada na direção e distância - COM VERIFICAÇÃO DE COLISÃO
 	var movement_distance = decision.target_distance
 	
-	match car.direction_enum:
-		0:  # LEFT_TO_RIGHT (West → East)
-			car.target_position.x += movement_distance
-		1:  # RIGHT_TO_LEFT (East → West)
-			car.target_position.x -= movement_distance
-		3:  # BOTTOM_TO_TOP (South → North)
-			car.target_position.z -= movement_distance
+	# Se carro está parado, NÃO mover para evitar sobreposição
+	if car.speed_state == "stopped":
+		movement_distance = 0.0
+	else:
+		# Verificar se o movimento causaria colisão com líder
+		var safe_movement = calculate_safe_movement(car, movement_distance)
+		movement_distance = safe_movement
+	
+	# Aplicar movimento apenas se seguro
+	if movement_distance > 0:
+		match car.direction_enum:
+			0:  # LEFT_TO_RIGHT (West → East)
+				car.target_position.x += movement_distance
+			1:  # RIGHT_TO_LEFT (East → West)
+				car.target_position.x -= movement_distance
+			3:  # BOTTOM_TO_TOP (South → North)
+				car.target_position.z -= movement_distance
 
 func get_visual_speed_for_state(speed_state: String) -> float:
 	# Velocidade de interpolação visual MUITO MAIS RÁPIDA para fluidez
@@ -337,25 +347,25 @@ func get_traffic_light_for_car(car: Dictionary) -> String:
 	return ""
 
 func get_distance_to_intersection(car: Dictionary) -> float:
-	# Calculate distance from car to STOP LINE (logo antes da faixa de pedestre)
-	# Stop lines devem ficar antes das faixas - cerca de 2.5 unidades do centro
-	var stop_line_offset = 2.5
+	# Calculate distance from car to STOP LINE (bem antes da faixa de pedestre)
+	# Stop lines mais afastadas para evitar carros parando em cima das faixas
+	var stop_line_offset = 5.0  # AUMENTADO: 2.5 → 5.0 metros do centro
 	
 	match car.direction_enum:
 		0:  # LEFT_TO_RIGHT (West → East)
-			var stop_line_x = -stop_line_offset  # Linha de parada em X = -2.5
+			var stop_line_x = -stop_line_offset  # Linha de parada em X = -5.0
 			if car.position.x < stop_line_x:  # Before stop line
 				return abs(car.position.x - stop_line_x)
 			else:  # After stop line
 				return -1  # Past stop line
 		1:  # RIGHT_TO_LEFT (East → West)
-			var stop_line_x = stop_line_offset   # Linha de parada em X = +2.5
+			var stop_line_x = stop_line_offset   # Linha de parada em X = +5.0
 			if car.position.x > stop_line_x:  # Before stop line
 				return car.position.x - stop_line_x
 			else:  # After stop line
 				return -1  # Past stop line
 		3:  # BOTTOM_TO_TOP (South → North)
-			var stop_line_z = stop_line_offset + 1.0   # Linha de parada em Z = +3.5 (um pouco mais antes)
+			var stop_line_z = stop_line_offset + 2.0   # Linha de parada em Z = +7.0 (ainda mais antes)
 			if car.position.z > stop_line_z:  # Before stop line
 				return car.position.z - stop_line_z
 			else:  # After stop line
@@ -365,12 +375,12 @@ func get_distance_to_intersection(car: Dictionary) -> float:
 
 func is_in_intersection(car: Dictionary) -> bool:
 	# Definir área da intersecção - zona central onde carros NUNCA podem parar
-	# Ajustada para ser consistente com as linhas de parada antes das faixas
+	# Ajustada para ser consistente com as novas linhas de parada mais afastadas
 	var intersection_bounds = {
-		"x_min": -2.5,
-		"x_max": 2.5,
-		"z_min": -2.5,
-		"z_max": 2.5
+		"x_min": -5.0,  # EXPANDIDO: -2.5 → -5.0 para coincidir com stop lines
+		"x_max": 5.0,   # EXPANDIDO: 2.5 → 5.0 para coincidir com stop lines
+		"z_min": -5.0,  # EXPANDIDO: -2.5 → -5.0
+		"z_max": 7.0    # EXPANDIDO: 2.5 → 7.0 (maior para direção sul-norte)
 	}
 	
 	return (car.position.x >= intersection_bounds.x_min and 
@@ -396,34 +406,34 @@ func find_leader_car(current_car: Dictionary) -> Dictionary:
 		if other_car.direction_enum != current_car.direction_enum:
 			continue
 		
-		# Verificar se estão na mesma faixa (proximidade lateral) - MAIS RESTRITIVO
+		# Verificar se estão na mesma faixa (proximidade lateral) - USAR TARGET_POSITION
 		var lateral_distance = 0.0
 		match current_car.direction_enum:
 			0, 1:  # Horizontal roads
-				lateral_distance = abs(other_car.position.z - current_car.position.z)
+				lateral_distance = abs(other_car.target_position.z - current_car.target_position.z)
 			3:  # Vertical road
-				lateral_distance = abs(other_car.position.x - current_car.position.x)
+				lateral_distance = abs(other_car.target_position.x - current_car.target_position.x)
 		
 		if lateral_distance > 1.5:  # Faixas diferentes - mais restritivo
 			continue
 		
-		# Verificar se está à frente
+		# Verificar se está à frente - USAR TARGET_POSITION para posição real
 		var is_ahead = false
 		var distance = 0.0
 		
 		match current_car.direction_enum:
 			0:  # LEFT_TO_RIGHT (West → East)
-				if other_car.position.x > current_car.position.x:
+				if other_car.target_position.x > current_car.target_position.x:
 					is_ahead = true
-					distance = other_car.position.x - current_car.position.x
+					distance = other_car.target_position.x - current_car.target_position.x
 			1:  # RIGHT_TO_LEFT (East → West)
-				if other_car.position.x < current_car.position.x:
+				if other_car.target_position.x < current_car.target_position.x:
 					is_ahead = true
-					distance = current_car.position.x - other_car.position.x
+					distance = current_car.target_position.x - other_car.target_position.x
 			3:  # BOTTOM_TO_TOP (South → North)
-				if other_car.position.z < current_car.position.z:
+				if other_car.target_position.z < current_car.target_position.z:
 					is_ahead = true
-					distance = current_car.position.z - other_car.position.z
+					distance = current_car.target_position.z - other_car.target_position.z
 		
 		if is_ahead and distance < min_distance:
 			min_distance = distance
@@ -431,16 +441,38 @@ func find_leader_car(current_car: Dictionary) -> Dictionary:
 	
 	return closest_leader
 
+func calculate_safe_movement(car: Dictionary, intended_movement: float) -> float:
+	# Calcular quanto o carro pode se mover sem colidir com o líder
+	if intended_movement <= 0:
+		return 0.0
+	
+	var leader_car = find_leader_car(car)
+	if leader_car.is_empty():
+		return intended_movement  # Sem líder, movimento livre
+	
+	var gap_to_leader = calculate_gap_to_leader(car, leader_car)
+	var min_safe_distance = 1.0  # Distância mínima de segurança entre carros
+	
+	# Calcular posição futura após movimento
+	var future_gap = gap_to_leader - intended_movement
+	
+	# Se movimento causaria aproximação demais, reduzir movimento
+	if future_gap < min_safe_distance:
+		var safe_movement = max(0.0, gap_to_leader - min_safe_distance)
+		return safe_movement
+	else:
+		return intended_movement
+
 func calculate_gap_to_leader(current_car: Dictionary, leader_car: Dictionary) -> float:
-	# Calcular distância real entre carros (gap) - MAIS PRECISO
+	# Calcular distância real entre carros (gap) - USAR TARGET_POSITION
 	var car_length = 3.0  # Tamanho mais realista do carro
 	match current_car.direction_enum:
 		0:  # LEFT_TO_RIGHT
-			return max(0.0, leader_car.position.x - current_car.position.x - car_length)
+			return max(0.0, leader_car.target_position.x - current_car.target_position.x - car_length)
 		1:  # RIGHT_TO_LEFT
-			return max(0.0, current_car.position.x - leader_car.position.x - car_length)
+			return max(0.0, current_car.target_position.x - leader_car.target_position.x - car_length)
 		3:  # BOTTOM_TO_TOP
-			return max(0.0, current_car.position.z - leader_car.position.z - car_length)
+			return max(0.0, current_car.target_position.z - leader_car.target_position.z - car_length)
 	return 0.0
 
 # REMOVIDO: funções IDM antigas desnecessárias

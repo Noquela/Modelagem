@@ -59,11 +59,11 @@ func setup_ui_layout():
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let empty areas pass mouse to camera
 	add_child(bg)
 	
-	# Main container with MINIMAL margins to use maximum screen space
+	# Main container SEM MARGEM DIREITA para gráfico ir até a borda
 	var main_container = MarginContainer.new()
 	main_container.anchors_preset = Control.PRESET_FULL_RECT
 	main_container.add_theme_constant_override("margin_left", 5)
-	main_container.add_theme_constant_override("margin_right", 5)
+	main_container.add_theme_constant_override("margin_right", 0)  # ZERO - gráfico vai até a borda
 	main_container.add_theme_constant_override("margin_top", 5)
 	main_container.add_theme_constant_override("margin_bottom", 5)
 	add_child(main_container)
@@ -81,12 +81,12 @@ func setup_ui_layout():
 	main_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(main_title)
 	
-	# TOP ROW: Statistics + Frequency Chart (RESTORED ORIGINAL)
-	var top_row = HBoxContainer.new()
+	# TOP ROW: POSICIONAMENTO ABSOLUTO - CHART OCUPA TODO RESTO DA TELA
+	var top_row = Control.new()  # Container pai absoluto
 	top_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	top_row.add_theme_constant_override("separation", 10)
-	top_row.custom_minimum_size = Vector2(0, 850)  # REAL ORIGINAL with larger chart: 850
+	top_row.anchors_preset = Control.PRESET_FULL_RECT
+	top_row.custom_minimum_size = Vector2(0, 850)
 	vbox.add_child(top_row)
 	
 	# BOTTOM ROW: Interactive Controls (RESTORED ORIGINAL)
@@ -102,29 +102,32 @@ func setup_ui_layout():
 	interactive_controls = bottom_row
 
 func setup_ui_components():
-	# Create Statistics Table (left - ORIGINAL)
+	# Create Statistics Table - MAIS COMPACTO AINDA
 	var stats_component = preload("res://scripts/ui_nova/StatisticsTable.gd").new()
 	stats_component.name = "StatisticsTable"
-	stats_component.size_flags_horizontal = Control.SIZE_SHRINK_END
-	stats_component.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stats_component.custom_minimum_size = Vector2(500, 750)  # MATCH CHART HEIGHT: 500x750
+	# POSICIONAMENTO ABSOLUTO - fica colado à esquerda
+	stats_component.position = Vector2(5, 5)
+	stats_component.size = Vector2(340, 840)  # REDUZIDO: 380→340
 	statistics_table.add_child(stats_component)
 	
-	# Create ADDITIONAL Analysis Panel (middle) - ORIGINAL
+	# Create ADDITIONAL Analysis Panel - AINDA MAIS COMPACTO
 	var analysis_component = preload("res://scripts/ui_nova/AdvancedAnalysis.gd").new()
 	analysis_component.name = "AdvancedAnalysis"
-	analysis_component.size_flags_horizontal = Control.SIZE_SHRINK_END
-	analysis_component.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	analysis_component.custom_minimum_size = Vector2(400, 750)  # MATCH CHART HEIGHT: 400x750
+	# POSICIONAMENTO ABSOLUTO - ao lado do stats
+	analysis_component.position = Vector2(350, 5)  # 340 + 10 margem
+	analysis_component.size = Vector2(280, 840)  # REDUZIDO: 300→280
 	statistics_table.add_child(analysis_component)
 	
-	# Create Frequency Chart (right side - ORIGINAL)  
+	# Create Frequency Chart - VAI ATÉ A BORDA ABSOLUTA
 	var chart_component = preload("res://scripts/ui_nova/EventFrequencyChart.gd").new()
 	chart_component.name = "EventFrequencyChart"
-	chart_component.size_flags_horizontal = Control.SIZE_EXPAND_FILL  # Takes all remaining space
-	chart_component.size_flags_vertical = Control.SIZE_EXPAND_FILL 
-	chart_component.custom_minimum_size = Vector2(1400, 750)  # REAL ORIGINAL: 1400x750
-	statistics_table.add_child(chart_component)
+	# POSICIONAMENTO ABSOLUTO - começa após os componentes compactos
+	chart_component.position = Vector2(635, 5)  # REDUZIDO: 340+280+15 = 635
+	# TAMANHO DINÂMICO - vai até MARGEM ZERO na direita
+	var viewport_width = get_viewport().size.x
+	var chart_width = viewport_width - 635  # SEM MARGEM DIREITA - vai até borda absoluta
+	chart_component.size = Vector2(chart_width, 840)
+	frequency_chart.add_child(chart_component)
 	
 	# Create Interactive Controls (bottom full width)
 	var controls_component = preload("res://scripts/ui_nova/InteractiveControls.gd").new()
@@ -138,6 +141,15 @@ func setup_ui_components():
 	analysis_component.initialize_systems(event_bus, discrete_simulation, simulation_clock, traffic_controller, car_spawner)
 	chart_component.initialize_systems(event_bus, discrete_simulation, simulation_clock)  
 	controls_component.initialize_systems(event_bus, discrete_simulation, simulation_clock, traffic_controller, car_spawner)
+	
+	# AJUSTE DINÂMICO QUANDO TELA REDIMENSIONA
+	get_viewport().size_changed.connect(_on_viewport_resized.bind(chart_component))
+
+func _on_viewport_resized(chart_component):
+	# Reajusta o tamanho do chart quando a janela redimensiona
+	var viewport_width = get_viewport().size.x
+	var chart_width = viewport_width - 635  # SEM MARGEM - vai até borda direita
+	chart_component.size = Vector2(max(200, chart_width), 840)  # Expande até borda ABSOLUTA
 
 func create_analysis_panel() -> Control:
 	# Advanced Analysis Panel with visual demonstrations

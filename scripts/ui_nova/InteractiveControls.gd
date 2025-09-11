@@ -34,6 +34,11 @@ func initialize_systems(eb: Node, ds: Node, sc: Node, tc: Node, cs: Node):
 	simulation_clock = sc
 	traffic_controller = tc
 	car_spawner = cs
+	
+	# Definir valor padrão de carros para 30
+	if car_spawner:
+		car_spawner.max_cars = 30
+		print("🎮 Máximo de carros definido para: 30")
 
 func setup_ui():
 	# Background panel - IMPORTANT: Capture mouse events
@@ -203,14 +208,14 @@ func create_spawn_controls() -> Control:
 	section.add_child(max_cars_container)
 	
 	max_cars_label = Label.new()
-	max_cars_label.text = "Máximo de Carros: 15"
+	max_cars_label.text = "Máximo de Carros: 30"  # PADRÃO ATUALIZADO: 15 → 30
 	max_cars_label.add_theme_font_size_override("font_size", 12)
 	max_cars_container.add_child(max_cars_label)
 	
 	max_cars_slider = HSlider.new()
-	max_cars_slider.min_value = 5
-	max_cars_slider.max_value = 50
-	max_cars_slider.value = 15
+	max_cars_slider.min_value = 20  # AUMENTADO: 5 → 20
+	max_cars_slider.max_value = 60  # AUMENTADO: 50 → 60
+	max_cars_slider.value = 30      # PADRÃO ATUALIZADO: 15 → 30
 	max_cars_slider.step = 5
 	max_cars_slider.value_changed.connect(_on_max_cars_changed)
 	max_cars_container.add_child(max_cars_slider)
