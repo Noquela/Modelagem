@@ -69,6 +69,10 @@ func setup_ui():
 	# Section 3: Spawn Controls
 	var spawn_section = create_spawn_controls()
 	hbox.add_child(spawn_section)
+	
+	# Section 4: Commands Table (NEW)
+	var commands_section = create_commands_table()
+	hbox.add_child(commands_section)
 
 func create_simulation_controls() -> Control:
 	var section = VBoxContainer.new()
@@ -134,14 +138,14 @@ func create_traffic_light_controls() -> Control:
 	section.add_child(s1_s2_container)
 	
 	s1_s2_value_label = Label.new()
-	s1_s2_value_label.text = "S1/S2 (Principal): 30s"
+	s1_s2_value_label.text = "Semáforo S1/S2 (Verde): 20s"
 	s1_s2_value_label.add_theme_font_size_override("font_size", 12)
 	s1_s2_container.add_child(s1_s2_value_label)
 	
 	s1_s2_slider = HSlider.new()
 	s1_s2_slider.min_value = 15
 	s1_s2_slider.max_value = 60
-	s1_s2_slider.value = 30
+	s1_s2_slider.value = 20
 	s1_s2_slider.step = 5
 	s1_s2_slider.value_changed.connect(_on_s1_s2_slider_changed)
 	s1_s2_container.add_child(s1_s2_slider)
@@ -151,14 +155,14 @@ func create_traffic_light_controls() -> Control:
 	section.add_child(s3_container)
 	
 	s3_value_label = Label.new()
-	s3_value_label.text = "S3 (Transversal): 20s"
+	s3_value_label.text = "Semáforo S3 (Verde): 10s"
 	s3_value_label.add_theme_font_size_override("font_size", 12)
 	s3_container.add_child(s3_value_label)
 	
 	s3_slider = HSlider.new()
-	s3_slider.min_value = 10
-	s3_slider.max_value = 45
-	s3_slider.value = 20
+	s3_slider.min_value = 5
+	s3_slider.max_value = 30
+	s3_slider.value = 10
 	s3_slider.step = 5
 	s3_slider.value_changed.connect(_on_s3_slider_changed)
 	s3_container.add_child(s3_slider)
@@ -239,20 +243,18 @@ func _on_speed_button_pressed(speed: float):
 	speed_label.text = "⚡ Speed: %.1fx" % speed
 
 func _on_s1_s2_slider_changed(value: float):
-	s1_s2_value_label.text = "S1/S2 (Principal): %ds" % int(value)
+	s1_s2_value_label.text = "Semáforo S1/S2 (Verde): %ds" % int(value)
 	if traffic_controller:
-		var cycle_duration_prop = traffic_controller.get("cycle_duration")
-		if cycle_duration_prop != null:
-			traffic_controller.cycle_duration = value
-			print("🎮 Duração do ciclo S1/S2 alterada para: %ds" % int(value))
-		else:
-			print("🎮 cycle_duration não encontrado no TrafficController")
+		# Alterar apenas o tempo verde do S1/S2
+		traffic_controller.s1_s2_green_duration = value
+		print("🎮 Tempo verde S1/S2 alterado para: %ds (amarelo permanece 2s)" % int(value))
 
 func _on_s3_slider_changed(value: float):
-	s3_value_label.text = "S3 (Transversal): %ds" % int(value)
+	s3_value_label.text = "Semáforo S3 (Verde): %ds" % int(value)
 	if traffic_controller:
-		# S3 is controlled by the same cycle as S1/S2 but opposite
-		print("🎮 S3 controlado pelo mesmo ciclo que S1/S2: %ds" % int(value))
+		# Alterar apenas o tempo verde do S3
+		traffic_controller.s3_green_duration = value
+		print("🎮 Tempo verde S3 alterado para: %ds (amarelo permanece 2s)" % int(value))
 
 func _on_spawn_rate_changed(value: float):
 	spawn_rate_label.text = "Taxa de Spawn: %.1fx" % value
@@ -276,3 +278,66 @@ func _on_max_cars_changed(value: float):
 		elif car_spawner.has_method("set_max_cars"):
 			car_spawner.set_max_cars(int(value))
 			print("🎮 Máximo de carros alterado via método para: ", int(value))
+
+func create_commands_table() -> Control:
+	var section = VBoxContainer.new()
+	section.add_theme_constant_override("separation", 8)
+	section.custom_minimum_size = Vector2(300, 0)  # Wide section for commands
+	
+	# Title
+	var title = Label.new()
+	title.text = "⌨️ COMANDOS DISPONÍVEIS"
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", Color.CYAN)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	section.add_child(title)
+	
+	# Commands list
+	var commands = [
+		["ESPAÇO", "⏸️ Pausar/Retomar"],
+		["R", "🔄 Resetar Simulação"],
+		["C", "📹 Trocar Câmera"],
+		["H", "👁️ Mostrar/Ocultar UI"],
+		["1-5", "⚡ Velocidade 0.1x-5x"],
+		["Mouse", "🔄 Rotacionar Câmera"],
+		["Scroll", "🔍 Zoom In/Out"]
+	]
+	
+	# Create command entries
+	for command in commands:
+		var command_container = HBoxContainer.new()
+		command_container.add_theme_constant_override("separation", 15)
+		
+		# Key label
+		var key_label = Label.new()
+		key_label.text = command[0]
+		key_label.add_theme_font_size_override("font_size", 12)
+		key_label.add_theme_color_override("font_color", Color.YELLOW)
+		key_label.custom_minimum_size = Vector2(80, 0)  # Fixed width for alignment
+		command_container.add_child(key_label)
+		
+		# Action label
+		var action_label = Label.new()
+		action_label.text = command[1]
+		action_label.add_theme_font_size_override("font_size", 11)
+		action_label.add_theme_color_override("font_color", Color.WHITE)
+		command_container.add_child(action_label)
+		
+		section.add_child(command_container)
+	
+	# Additional info
+	var separator = Label.new()
+	separator.text = "─────────────────"
+	separator.add_theme_font_size_override("font_size", 10)
+	separator.add_theme_color_override("font_color", Color.GRAY)
+	separator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	section.add_child(separator)
+	
+	var info_label = Label.new()
+	info_label.text = "💡 Ajuste os sliders para\nmodificar comportamento\ndo sistema em tempo real"
+	info_label.add_theme_font_size_override("font_size", 10)
+	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	section.add_child(info_label)
+	
+	return section

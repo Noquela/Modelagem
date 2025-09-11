@@ -48,14 +48,14 @@ func setup_ui():
 	var margin_container = MarginContainer.new()
 	margin_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin_container.add_theme_constant_override("margin_left", 15)
-	margin_container.add_theme_constant_override("margin_right", 15)
-	margin_container.add_theme_constant_override("margin_top", 15)
-	margin_container.add_theme_constant_override("margin_bottom", 15)
+	margin_container.add_theme_constant_override("margin_left", 5)   # 15→5
+	margin_container.add_theme_constant_override("margin_right", 5)  # 15→5  
+	margin_container.add_theme_constant_override("margin_top", 5)    # 15→5
+	margin_container.add_theme_constant_override("margin_bottom", 5) # 15→5
 	panel.add_child(margin_container)
 	
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 15)  # More spacing
+	vbox.add_theme_constant_override("separation", 5)   # REDUCED: 15→5
 	margin_container.add_child(vbox)
 	
 	# Title and toggle button
@@ -71,7 +71,7 @@ func setup_ui():
 	
 	toggle_button = Button.new()
 	toggle_button.text = "🔄 Timeline"
-	toggle_button.custom_minimum_size = Vector2(100, 30)
+	toggle_button.custom_minimum_size = Vector2(80, 25)  # SMALLER: 100→80, 30→25
 	toggle_button.pressed.connect(_on_toggle_mode)
 	header.add_child(toggle_button)
 	
@@ -79,7 +79,7 @@ func setup_ui():
 	chart_area = Control.new()
 	chart_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chart_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	chart_area.custom_minimum_size = Vector2(0, 200)  # Ensure minimum height
+	chart_area.custom_minimum_size = Vector2(0, 750)  # REAL ORIGINAL SIZE
 	chart_area.draw.connect(_draw_chart)
 	vbox.add_child(chart_area)
 
@@ -144,12 +144,12 @@ func _draw_chart():
 
 func _draw_timeline():
 	var rect = chart_area.get_rect()
-	var margin = Vector2(20, 20)
+	var margin = Vector2(10, 10)  # REDUCED timeline margins
 	var available_rect = Rect2(
 		margin.x,
 		margin.y,
-		rect.size.x - margin.x - 20,
-		rect.size.y - margin.y - 20
+		rect.size.x - margin.x - 10,  # REDUCED right margin
+		rect.size.y - margin.y - 10   # REDUCED bottom margin
 	)
 	
 	if event_timeline.is_empty():
@@ -189,8 +189,8 @@ func _draw_timeline():
 
 func _draw_bars():
 	var rect = chart_area.get_rect()
-	var margin = Vector2(60, 20)  # Left margin for Y labels, smaller top margin
-	var bottom_margin = 60  # Space for event labels at bottom
+	var margin = Vector2(45, 5)   # ULTRA REDUCED: 50→45, 10→5  
+	var bottom_margin = 25  # ULTRA REDUCED: 40→25
 	var available_rect = Rect2(
 		margin.x, 
 		margin.y, 
@@ -229,7 +229,7 @@ func _draw_bars():
 	for i in range(event_types.size()):
 		var event_type = event_types[i]
 		var frequency = event_frequencies[event_type]
-		var bar_height = (frequency / float(max_freq)) * available_rect.size.y * 0.85  # 85% of available height for better use of space
+		var bar_height = (frequency / float(max_freq)) * available_rect.size.y * 0.95  # 95% of available height - MAXIMUM usage
 		var color = colors.get(event_type, Color.WHITE)
 		
 		var x_pos = available_rect.position.x + i * bar_width
