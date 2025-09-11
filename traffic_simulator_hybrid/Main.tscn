@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3 uid="uid://mbt5ffc6h5w2"]
+
+[ext_resource type="Script" uid="uid://boibri4wy0g1v" path="res://scripts/visual/Main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://bf7frjrlfwl6h" path="res://scripts/ui/SimulationUI.gd" id="2_ui"]
+
+[node name="root" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="UI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_ui")

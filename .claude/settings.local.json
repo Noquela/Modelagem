@@ -33,7 +33,10 @@
       "Bash(xcopy:*)",
       "Bash(robocopy:*)",
       "Bash(dir:*)",
-      "Bash(rsync:*)"
+      "Bash(rsync:*)",
+      "Bash(move:*)",
+      "Bash(copy:*)",
+      "Bash(godot:*)"
     ],
     "deny": [],
     "ask": []
