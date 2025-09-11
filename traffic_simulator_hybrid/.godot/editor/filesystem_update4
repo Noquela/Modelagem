@@ -1,0 +1,11 @@
+res://scenes/Main.tscn
+res://scripts/world/Main.gd
+res://scripts/discrete/DiscreteCarJourney.gd
+res://scripts/discrete/DiscreteSpawnSystem.gd
+res://scripts/visual/TrafficLight.gd
+res://scripts/discrete/DiscreteCar.gd
+res://scripts/hybrid/HybridRenderer.gd
+res://scripts/visual/Car.gd
+res://scenes/Car.tscn
+res://scripts/discrete/DiscreteSystem.gd
+res://scripts/discrete/DiscreteTrafficManager.gd

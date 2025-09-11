@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://bxhyhwgkrjps1"]
+
+[ext_resource type="Script" uid="uid://c6qfhlnt5l720" path="res://scripts/world/Main.gd" id="1_50xkn"]
+[ext_resource type="Script" uid="uid://ih4y7jsvrc3l" path="res://scripts/world/CameraController.gd" id="2_vqboj"]
+[ext_resource type="Script" uid="uid://dr3q22dxbogvm" path="res://scripts/world/Analytics.gd" id="3_mxdae"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_50xkn")
+
+[node name="CameraController" type="Node3D" parent="."]
+script = ExtResource("2_vqboj")
+
+[node name="Camera3D" type="Camera3D" parent="CameraController"]
+
+[node name="Analytics" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("3_mxdae")
